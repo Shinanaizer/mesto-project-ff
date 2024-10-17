@@ -7,7 +7,6 @@ import { openModal } from "./components/modal";
 import { closeModal } from "./components/modal";
 import { escapeClose } from "./components/modal";
 
-
 const content = document.querySelector(".content");
 const cardList = content.querySelector(".places__list");
 const profileAddButton = document.querySelector(".profile__add-button");
@@ -23,8 +22,6 @@ const cardLink = newCardFormElement.elements.link;
 const imageModal = document.querySelector('.popup_type_image');
 const imageModalText = document.querySelector('.popup__caption');
 const imageModalPicture = document.querySelector('.popup__image');
-
-
 
 function sixCards() {
   initialCards.forEach(function (item) {
@@ -46,17 +43,14 @@ function imageModalOpen(cardInfo){
       imageModalPicture.src = cardInfo.link;
       imageModalText.textContent = cardInfo.name;
       openModal(imageModal);
-    };
-  
+};
 
 function profileFormSubmit(evt) {
   evt.preventDefault();
   const job = jobInput.value;
   const name = nameInput.value;
-
   const profileNameText = document.querySelector(".profile__title");
   const profileJobText = document.querySelector(".profile__description");
-
   profileJobText.textContent = job;
   profileNameText.textContent = name;
   const openedPopup = document.querySelector('.popup_is-opened');

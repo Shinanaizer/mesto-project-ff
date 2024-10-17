@@ -17,7 +17,6 @@ export function addCard(cardInfo, deleteCard, likeCard, imageModalOpen){
     return copyCard;
 };
 
-
 export function likeCard(evt){
     evt.target.closest('.card__like-button').classList.toggle('card__like-button_is-active');
   };
