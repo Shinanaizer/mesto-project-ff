@@ -7,12 +7,14 @@ export function openModal(modalWindow){
 };
 
 export function closeModal(openedModal){
+    
     openedModal.classList.remove('popup_is-opened');   
+    openedModal.removeEventListener('click', closePopupByClick);
+    document.removeEventListener('keydown', escapeClose);
 };
 
 export function escapeClose(evt){
     if (evt.key === 'Escape'){
-        document.removeEventListener('keydown', escapeClose);
         const openedPopup = document.querySelector('.popup_is-opened');
         closeModal(openedPopup);
     }};

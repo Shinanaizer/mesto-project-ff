@@ -7,7 +7,7 @@ import { openModal } from "./components/modal";
 import { closeModal } from "./components/modal";
 import { escapeClose } from "./components/modal";
 
-const openedPopup = document.querySelector(".popup_is-opened");
+
 const content = document.querySelector(".content");
 const cardList = content.querySelector(".places__list");
 const profileAddButton = document.querySelector(".profile__add-button");
@@ -20,10 +20,15 @@ const jobInput = profileFormElement.elements.description;
 const newCardFormElement = document.forms["new-place"];
 const cardNameInput = newCardFormElement.elements["place-name"];
 const cardLink = newCardFormElement.elements.link;
+const imageModal = document.querySelector('.popup_type_image');
+const imageModalText = document.querySelector('.popup__caption');
+const imageModalPicture = document.querySelector('.popup__image');
+
+
 
 function sixCards() {
   initialCards.forEach(function (item) {
-    cardList.append(addCard(item, deleteCard));
+    cardList.append(addCard(item, deleteCard, likeCard, imageModalOpen));
   });
 }
 
@@ -37,6 +42,13 @@ profileEditButton.addEventListener("click", function () {
   openModal(profileEditPopup);
 });
 
+function imageModalOpen(cardInfo){
+      imageModalPicture.src = cardInfo.link;
+      imageModalText.textContent = cardInfo.name;
+      openModal(imageModal);
+    };
+  
+
 function profileFormSubmit(evt) {
   evt.preventDefault();
   const job = jobInput.value;
@@ -47,7 +59,7 @@ function profileFormSubmit(evt) {
 
   profileJobText.textContent = job;
   profileNameText.textContent = name;
-  const openedPopup = document.querySelector(".popup_is-opened");
+  const openedPopup = document.querySelector('.popup_is-opened');
   closeModal(openedPopup);
 }
 
@@ -63,8 +75,8 @@ function cardFormSubmit(evt) {
   };
   cardObject.name = place;
   cardObject.link = link;
-  cardList.prepend(addCard(cardObject, deleteCard));
-  const openedPopup = document.querySelector(".popup_is-opened");
+  cardList.prepend(addCard(cardObject, deleteCard, likeCard, imageModalOpen));
+  const openedPopup = document.querySelector('.popup_is-opened');
   closeModal(openedPopup);
   newCardFormElement.reset();
 }
