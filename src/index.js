@@ -71,7 +71,7 @@ function submitCardForm(evt) {
   };
   cardObject.name = place;
   cardObject.link = link;
-  cardList.prepend(addCard(cardObject, deleteCard, likeCard, imageModalOpen));
+  cardList.prepend(addCard(cardObject, deleteCard, likeCard, openImageModal));
   const openedPopup = document.querySelector('.popup_is-opened');
   closeModal(openedPopup);
   newCardFormElement.reset();
