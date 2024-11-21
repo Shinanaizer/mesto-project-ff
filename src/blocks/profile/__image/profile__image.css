@@ -7,8 +7,6 @@
   background-size: cover;
   background-position: center;
   margin: 0 29px 0 0;
-<<<<<<< HEAD
-=======
   background-color: black;
   position: relative;
 };
@@ -19,7 +17,6 @@
   inset: 0;
   background-color: rgb(125 20 204 / 0.5);
   z-index: -1;
->>>>>>> gh-pages
 }
 
 @media screen and (max-width: 740px) {

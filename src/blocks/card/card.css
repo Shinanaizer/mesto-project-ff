@@ -13,8 +13,6 @@
   position: relative;
   overflow: hidden;
 }
-<<<<<<< HEAD
-=======
 
 .button_n_likes {
   display: flex;
@@ -27,4 +25,3 @@
   font-family: 'Inter', Arial, sans-serif;
   font-weight: 400;
 }
->>>>>>> gh-pages
