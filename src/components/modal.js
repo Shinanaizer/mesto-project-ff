@@ -1,4 +1,3 @@
-
 export function openModal(modalWindow){
     modalWindow.classList.add('popup_is-animated');
     modalWindow.classList.add('popup_is-opened');

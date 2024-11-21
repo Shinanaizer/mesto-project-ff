@@ -61,7 +61,7 @@ export function patchProfile(profileNameInputValue, profileJobInputValue){
         }})
     };
 
-export function deleteCard(cardId){
+export function deleteCardReq(cardId){
     return fetch(`https://mesto.nomoreparties.co/v1/wff-cohort-26/cards/${cardId}`, {
         method: 'DELETE',
         headers: {

@@ -7,12 +7,14 @@ import { enableValidation } from "./components/validation";
 import { clearValidation } from "./components/validation";
 import { likeCardReq } from "./components/api";
 import { dislikeCardReq } from "./components/api";
-import { deleteCard } from "./components/api";
+import { deleteCardReq } from "./components/api";
 import { postCard } from "./components/api";
 import { patchProfile } from "./components/api";
 import { changeAvatar } from "./components/api";
 import { userInfoRequest } from "./components/api";
 import { cardsRequest } from "./components/api";
+import { handleLikes } from "./components/card";
+import { handleDelete } from "./components/card";
 
 const content = document.querySelector(".content");
 const cardList = content.querySelector(".places__list");
@@ -80,15 +82,12 @@ const promises = [userInfoRequest, cardsRequest];
  Promise.all(promises)
   .then((promisesMassive) => {
     profileNameText.textContent = promisesMassive[0].name;
-    // console.log(promisesMassive[1]);
-    // console.log(promisesMassive[0]);
     profileJobText.textContent = promisesMassive[0].about;
     profileImage.style.backgroundImage = `url(${promisesMassive[0].avatar})`;
       function createDefaultCards() {
       promisesMassive[1].forEach(function (item) {
-        cardList.append(addCard(item, handleDelete, handleLikes, openImageModal, promisesMassive[0]));
+        cardList.append(addCard(item, handleDelete, handleLikes, openImageModal, promisesMassive[0], likeCardReq, dislikeCardReq, deleteCardReq));
       })
-      
     }
     createDefaultCards();
   })
@@ -171,7 +170,7 @@ function addNewCard(nameElement, linkElement){
   postCard(nameElement, linkElement).then((newCardInfo) => {
     Promise.all(userIdPromise)
     .then((userIdPromiseMassive) => {
-      cardList.prepend(addCard(newCardInfo, handleDelete, handleLikes, openImageModal, userIdPromiseMassive[0]));
+      cardList.prepend(addCard(newCardInfo, handleDelete, handleLikes, openImageModal, userIdPromiseMassive[0], likeCardReq, dislikeCardReq, deleteCardReq));
       cardPopupButton.textContent = 'Сохраненить';
     })})
     .catch((err) => {
@@ -190,33 +189,8 @@ enableValidation({
     errorClass: 'popup__error_visible'
   }); 
 
-function handleDelete(id, cardElement){ 
- return deleteCard(id).then(() => {
-    cardElement.remove()
-  })
-  .catch((err) => {
-    console.log(err);
-  })
-};
 
-function handleLikes(id, likeButton, likeCounter){
-  if (likeButton.classList.contains('card__like-button_is-active')) {
-    return dislikeCardReq(id).then((res) => {
-      likeButton.classList.remove('card__like-button_is-active');
-      likeCounter.textContent = `${res.likes.length}`
-    })
-    .catch((err) => {
-      console.log(err);
-    });
-  } else {
-    return likeCardReq(id).then((res) => {
-      likeButton.classList.add('card__like-button_is-active');
-      likeCounter.textContent = `${res.likes.length}`
-    }) 
-    .catch((err) => {
-      console.log(err);
-    })
-  }
-};
+
+
 
 
