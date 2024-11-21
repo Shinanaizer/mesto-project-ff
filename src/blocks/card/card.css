@@ -13,3 +13,18 @@
   position: relative;
   overflow: hidden;
 }
+<<<<<<< HEAD
+=======
+
+.button_n_likes {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.like_counter {
+  font-family: 'Inter', Arial, sans-serif;
+  font-weight: 400;
+}
+>>>>>>> gh-pages

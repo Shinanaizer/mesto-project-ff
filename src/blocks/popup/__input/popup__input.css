@@ -20,3 +20,16 @@
     line-height: 15px;
   }
 }
+
+.form__input-error {
+  visibility: hidden;
+}
+
+.popup__input_type_error {
+  border-bottom: 1px solid red;
+}
+
+.popup__error_visible {
+  visibility: visible;
+  color: red;
+}

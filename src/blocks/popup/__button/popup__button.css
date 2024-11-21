@@ -25,3 +25,14 @@
     line-height: 17px;
   }
 }
+<<<<<<< HEAD
+=======
+
+.popup__button_disabled {
+  background: transparent;
+  border: 1px solid gray;
+  color: grey;
+  pointer-events: none;
+}
+
+>>>>>>> gh-pages
