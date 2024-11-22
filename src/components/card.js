@@ -1,4 +1,4 @@
-export function addCard(cardInfo, deleteCard, likeCard, openImageModalWindow, userIdMassive, likeReq, dislikeReq, deleteCardReq){
+export function addCard(cardInfo, deleteCard, likeCard, openImageModalWindow, userId, likeReq, dislikeReq, deleteCardReq){
     const cardTemplate = document.getElementById('card-template').content;
     const copyCard = cardTemplate.querySelector('.card').cloneNode(true);
     const picture = copyCard.querySelector('.card__image');
@@ -9,15 +9,15 @@ export function addCard(cardInfo, deleteCard, likeCard, openImageModalWindow, us
     const copyCardLikeButton = copyCard.querySelector('.card__like-button');
     const copyCardLikeCounter = copyCard.querySelector('.like_counter');
     copyCardLikeButton.addEventListener('click', () => {
-        likeCard(cardInfo._id, copyCardLikeButton, copyCardLikeCounter, likeReq, dislikeReq)
+      likeCard(cardInfo._id, copyCardLikeButton, copyCardLikeCounter, likeReq, dislikeReq)
     });
     picture.addEventListener('click', function(){
-        openImageModalWindow(cardInfo);
+      openImageModalWindow(cardInfo);
     });
-    if (cardInfo.owner._id === userIdMassive._id) {
-        copyCardDeleteButton.addEventListener('click', () => {
-            deleteCard(cardInfo._id, copyCard, deleteCardReq);
-        });
+    if (cardInfo.owner._id === userId) {
+      copyCardDeleteButton.addEventListener('click', () => {
+      deleteCard(cardInfo._id, copyCard, deleteCardReq);
+      });
     } else {
         copyCardDeleteButton.remove();
     };
