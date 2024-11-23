@@ -31,7 +31,7 @@ export function postCard(nameElement, linkElement){
     body: JSON.stringify({
     name: `${nameElement}`,
     link: `${linkElement}`
-    })})
+  })})
     .then(res => checkResponse(res)); 
 };
 
@@ -42,7 +42,7 @@ export function patchProfile(profileNameInputValue, profileJobInputValue){
     body: JSON.stringify({
     name: `${profileNameInputValue}`,
     about: `${profileJobInputValue}`
-    })})
+  })})
     .then(res => checkResponse(res)); 
 };
 
@@ -50,7 +50,7 @@ export function deleteCardReq(cardId){
   return fetch(`${config.baseUrl}/cards/${cardId}`, {
     method: 'DELETE',
     headers: config.headers
-    })
+  })
     .then(res => checkResponse(res)); 
 };
 
@@ -58,7 +58,7 @@ export function likeCardReq(cardId){
   return fetch(`${config.baseUrl}/cards/likes/${cardId}`, {
     method: 'PUT',
     headers: config.headers
-    })
+  })
     .then(res => checkResponse(res)); 
 };
 
@@ -66,7 +66,7 @@ export function dislikeCardReq(cardId){
   return fetch(`${config.baseUrl}/cards/likes/${cardId}`, {
     method: 'DELETE',
     headers: config.headers
-    })
+  })
     .then(res => checkResponse(res)); 
 };
 
@@ -76,7 +76,7 @@ export function changeAvatar(avatarInputValue){
     headers: config.headers,
     body: JSON.stringify({
     avatar: `${avatarInputValue}`
-    })})
+  })})
     .then(res => checkResponse(res)); 
 };
 

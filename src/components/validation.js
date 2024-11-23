@@ -61,36 +61,10 @@ function toggleButtonState(inputList, buttonElement, validationConfig){
     };
 };
 
-function removeErrors(formElement, validationConfig, inputElement){
-  const pattern = /^[\-a-zA-Zа-яА-яёЁ\s]+$/g;
-  const buttonElement = formElement.querySelector(validationConfig.submitButtonSelector);
-  inputElement.value.replace(pattern, '');
-  buttonElement.classList.add(validationConfig.inactiveButtonClass);
-  const errorElement = formElement.querySelector(`.${inputElement.id}-error`);
-  inputElement.classList.remove(validationConfig.inputErrorClass);
-  errorElement.classList.remove(validationConfig.errorClass)
-  errorElement.textContent = '';
-};
-
 export function clearValidation (formElement, validationConfig){
-  const inputList = Array.from(formElement.querySelectorAll(validationConfig.inputSelector));
-  inputList.forEach(function(inputElement){
-      removeErrors(formElement, validationConfig, inputElement);
-    })};
-    
-    
-    // export function clearValidation (formElement, validationConfig){
-    //   const inputList = Array.from(formElement.querySelectorAll(validationConfig.inputSelector));
-    //   const buttonElement = formElement.querySelector(validationConfig.submitButtonSelector);
-    //   inputList.forEach(function(inputElement){
-    //     const pattern = /^[\-a-zA-Zа-яА-яёЁ\s]+$/g;
-    //     inputElement.value.replace(pattern, '');
-    //     buttonElement.classList.add(validationConfig.inactiveButtonClass);
-    //     const errorElement = formElement.querySelector(`.${inputElement.id}-error`);
-    //     inputElement.classList.remove(validationConfig.inputErrorClass);
-    //     errorElement.classList.remove(validationConfig.errorClass)
-    //     errorElement.textContent = '';
-    //     })};
-
-
-
+      const inputList = Array.from(formElement.querySelectorAll(validationConfig.inputSelector));
+      const buttonElement = formElement.querySelector(validationConfig.submitButtonSelector);
+      inputList.forEach(function(inputElement){
+      hideError(formElement, inputElement, validationConfig);
+      toggleButtonState(inputList, buttonElement, validationConfig);
+})};

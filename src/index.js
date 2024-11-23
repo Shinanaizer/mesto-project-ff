@@ -69,20 +69,19 @@ function submitAvatarForm(evt) {
 }; 
 
 function handleAvatarChange(avatar){
-  
-changeAvatar(avatar).then(() => {
   avatarPopupButton.textContent = 'Сохранение...';
-  profileImage.style.backgroundImage = `url(${avatar})`;
-  closeModal();
-  avatarChangeForm.reset();
-  clearValidation(avatarChangeForm, validConfig);
-  })
+  changeAvatar(avatar).then(() => {
+    profileImage.style.backgroundImage = `url(${avatar})`;
+    closeModal();
+    avatarChangeForm.reset();
+    clearValidation(avatarChangeForm, validConfig);
+    })
   .catch((err) => {
     console.log(err);
-  })
+    })
   .finally(() => {
     avatarPopupButton.textContent = 'Сохранить'; 
-  })
+    })
 };
 
 avatarChangeForm.addEventListener('submit', submitAvatarForm);
@@ -123,28 +122,28 @@ function submitProfileForm(evt) {
   evt.preventDefault();
   const job = jobInput.value;
   const name = nameInput.value;
-  profileJobText.textContent = job;
-  profileNameText.textContent = name;
   handlePatchProfile(name, job);
 };
 
 function handlePatchProfile(profileNameInputValue, profileJobInputValue){
-  
+  profilePopupButton.textContent = 'Сохранение...';
   patchProfile(profileNameInputValue, profileJobInputValue).then(() => {
-    profilePopupButton.textContent = 'Сохранение...';
+    profileJobText.textContent = profileJobInputValue;
+    profileNameText.textContent = profileNameInputValue;
     closeModal();
   })
-  .catch((err) => {
-    console.log(err);
+    .catch((err) => {
+      console.log(err);
   })
-  .finally(() => {
-    profilePopupButton.textContent = 'Сохранить';
+    .finally(() => {
+      profilePopupButton.textContent = 'Сохранить';
   })
 };
 
 profileFormElement.addEventListener("submit", submitProfileForm);
 
 function openImageModal(cardInformation){
+  imageModalPicture.alt = cardInformation.name;
   imageModalPicture.src = cardInformation.link;
   imageModalText.textContent = cardInformation.name;
   openModal(imageModal);
@@ -154,20 +153,13 @@ function submitCardForm(evt) {
   evt.preventDefault();
   const place = cardNameInput.value;
   const link = cardLink.value;
-  const cardObject = {
-    name: "",
-    link: "",
-  };
-  cardObject.name = place;
-  cardObject.link = link;
   addNewCard(place, link, userId);
 }; 
 
 function addNewCard(nameElement, linkElement, userIdElement){
+  cardPopupButton.textContent = 'Сохранение...';
   postCard(nameElement, linkElement).then((newCardInfo) => {
-    cardPopupButton.textContent = 'Сохранение...';
     cardList.prepend(addCard(newCardInfo, handleDelete, handleLikes, openImageModal, userIdElement, likeCardReq, dislikeCardReq, deleteCardReq));
-    
     closeModal();
     newCardFormElement.reset();
     clearValidation(newCardFormElement, validConfig);
