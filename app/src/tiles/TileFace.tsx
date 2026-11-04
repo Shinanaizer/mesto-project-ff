@@ -42,9 +42,6 @@ const FACES: readonly ImageSourcePropType[] = [
   require("../../assets/tiles/z_reddragon.png"),
 ];
 
-const ink = "#1b1408";
-const paper = "#f7f4ec";
-
 export function TileFace({ id, marked = false }: { id: number; marked?: boolean }) {
   return (
     <View style={[styles.tile, marked && styles.marked]}>
@@ -57,18 +54,14 @@ const styles = StyleSheet.create({
   tile: {
     width: "100%",
     aspectRatio: 0.74,
-    backgroundColor: paper,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: ink,
+    backgroundColor: "transparent",
     alignItems: "center",
     justifyContent: "center",
-    overflow: "hidden",
-    padding: 1,
   },
   marked: {
     borderWidth: 3,
     borderColor: "#e6b34e",
+    borderRadius: 6,
   },
   face: {
     width: "100%",
