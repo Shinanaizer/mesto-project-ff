@@ -10,6 +10,8 @@
  * instead (mangan, haneman, baiman, sanbaiman, kazoe yakuman).
  * 4 han 30 fu stays 7700: there is no kiriage mangan.
  * 13+ han is kazoe yakuman and does not become a double yakuman.
+ * A named yakuman is separate: pass `yakuman` (1, 2, …) and that limit
+ * replaces han entirely. 2 is a double yakuman.
  */
 
 export const HAN_VALUES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13] as const;
@@ -19,13 +21,25 @@ export const FU_VALUES = [20, 25, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130
 export type Winner = "dealer" | "nonDealer";
 export type WinBy = "ron" | "tsumo";
 
-export type Limit = "mangan" | "haneman" | "baiman" | "sanbaiman" | "kazoeYakuman";
+export type Limit =
+  | "mangan"
+  | "haneman"
+  | "baiman"
+  | "sanbaiman"
+  | "kazoeYakuman"
+  | "yakuman"
+  | "doubleYakuman";
 
 export interface ScoreInput {
   han: number;
   fu: number;
   winner: Winner;
   winBy: WinBy;
+  /**
+   * Named yakuman count. 1 is a yakuman, 2 is a double yakuman.
+   * When this is 1 or more, han is ignored and the limit is yakuman × count.
+   */
+  yakuman?: number;
 }
 
 export interface Payment {
@@ -41,6 +55,8 @@ export interface Score {
   winner: Winner;
   winBy: WinBy;
   limit: Limit | null;
+  /** Named yakuman count. 0 means the hand is scored from han. */
+  yakumanCount: number;
   /** Points the winner receives in total. */
   total: number;
   payments: Payment[];
@@ -90,6 +106,20 @@ const LIMITS: Record<Limit, LimitPayout> = {
     nonDealerTsumoFromDealer: 16000,
     dealerTsumoEach: 16000,
   },
+  yakuman: {
+    nonDealerRon: 32000,
+    dealerRon: 48000,
+    nonDealerTsumoFromNonDealer: 8000,
+    nonDealerTsumoFromDealer: 16000,
+    dealerTsumoEach: 16000,
+  },
+  doubleYakuman: {
+    nonDealerRon: 64000,
+    dealerRon: 96000,
+    nonDealerTsumoFromNonDealer: 16000,
+    nonDealerTsumoFromDealer: 32000,
+    dealerTsumoEach: 32000,
+  },
 };
 
 export const LIMIT_LABELS: Record<Limit, string> = {
@@ -98,7 +128,15 @@ export const LIMIT_LABELS: Record<Limit, string> = {
   baiman: "Байман",
   sanbaiman: "Санбайман",
   kazoeYakuman: "Кадзоэ-якуман",
+  yakuman: "Якуман",
+  doubleYakuman: "Двойной якуман",
 };
+
+export function limitLabel(score: Pick<Score, "limit" | "yakumanCount">): string | null {
+  if (score.yakumanCount >= 3) return `Якуман × ${score.yakumanCount}`;
+  if (score.limit == null) return null;
+  return LIMIT_LABELS[score.limit];
+}
 
 const WINNER_LABELS: Record<Winner, string> = {
   dealer: "Дилер",
@@ -153,15 +191,18 @@ function assertInput(input: ScoreInput): void {
   if (!Number.isSafeInteger(input.fu) || input.fu < 1) {
     throw new RangeError("Фу должны быть положительным целым числом");
   }
+  if (input.yakuman != null && (!Number.isSafeInteger(input.yakuman) || input.yakuman < 0)) {
+    throw new RangeError("Число якуманов должно быть целым от 0");
+  }
 }
 
-function fromLimit(input: ScoreInput, limit: Limit): Score {
-  const row = LIMITS[limit];
+function limitScore(input: ScoreInput, limit: Limit, row: LimitPayout, yakumanCount: number): Score {
   if (input.winBy === "ron") {
     const total = input.winner === "dealer" ? row.dealerRon : row.nonDealerRon;
     return {
       ...input,
       limit,
+      yakumanCount,
       total,
       payments: [{ payer: "discarder", points: total, count: 1 }],
     };
@@ -170,6 +211,7 @@ function fromLimit(input: ScoreInput, limit: Limit): Score {
     return {
       ...input,
       limit,
+      yakumanCount,
       total: row.dealerTsumoEach * 3,
       payments: [{ payer: "nonDealer", points: row.dealerTsumoEach, count: 3 }],
     };
@@ -177,12 +219,30 @@ function fromLimit(input: ScoreInput, limit: Limit): Score {
   return {
     ...input,
     limit,
+    yakumanCount,
     total: row.nonDealerTsumoFromNonDealer * 2 + row.nonDealerTsumoFromDealer,
     payments: [
       { payer: "nonDealer", points: row.nonDealerTsumoFromNonDealer, count: 2 },
       { payer: "dealer", points: row.nonDealerTsumoFromDealer, count: 1 },
     ],
   };
+}
+
+function fromLimit(input: ScoreInput, limit: Limit): Score {
+  return limitScore(input, limit, LIMITS[limit], 0);
+}
+
+function fromNamedYakuman(input: ScoreInput, count: number): Score {
+  const base = LIMITS.yakuman;
+  const row: LimitPayout = {
+    nonDealerRon: base.nonDealerRon * count,
+    dealerRon: base.dealerRon * count,
+    nonDealerTsumoFromNonDealer: base.nonDealerTsumoFromNonDealer * count,
+    nonDealerTsumoFromDealer: base.nonDealerTsumoFromDealer * count,
+    dealerTsumoEach: base.dealerTsumoEach * count,
+  };
+  const limit: Limit = count === 1 ? "yakuman" : "doubleYakuman";
+  return limitScore(input, limit, row, count);
 }
 
 function fromFormula(input: ScoreInput): Score {
@@ -192,6 +252,7 @@ function fromFormula(input: ScoreInput): Score {
     return {
       ...input,
       limit: null,
+      yakumanCount: 0,
       total,
       payments: [{ payer: "discarder", points: total, count: 1 }],
     };
@@ -201,6 +262,7 @@ function fromFormula(input: ScoreInput): Score {
     return {
       ...input,
       limit: null,
+      yakumanCount: 0,
       total: each * 3,
       payments: [{ payer: "nonDealer", points: each, count: 3 }],
     };
@@ -210,6 +272,7 @@ function fromFormula(input: ScoreInput): Score {
   return {
     ...input,
     limit: null,
+    yakumanCount: 0,
     total: fromNonDealer * 2 + fromDealer,
     payments: [
       { payer: "nonDealer", points: fromNonDealer, count: 2 },
@@ -220,6 +283,8 @@ function fromFormula(input: ScoreInput): Score {
 
 export function scoreHand(input: ScoreInput): Score {
   assertInput(input);
+  const yakuman = input.yakuman ?? 0;
+  if (yakuman >= 1) return fromNamedYakuman(input, yakuman);
   const limit = limitFor(input.han, input.fu);
   return limit ? fromLimit(input, limit) : fromFormula(input);
 }

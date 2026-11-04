@@ -5,9 +5,9 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import {
   FU_VALUES,
   HAN_VALUES,
-  LIMIT_LABELS,
   formatHan,
   formatPoints,
+  limitLabel,
   paymentLines,
   scoreHand,
   winByLabel,
@@ -15,6 +15,9 @@ import {
   type Winner,
   type WinBy,
 } from "./src/scoring/score";
+import { ZERO_COUNTERS, type HanCounters, type YakuId } from "./src/yaku/catalog";
+import { YakuPicker } from "./src/yaku/YakuPicker";
+import { dropClosedOnly, sumYaku, toggleYaku } from "./src/yaku/sum";
 
 const colors = {
   bg: "#10241c",
@@ -37,10 +40,13 @@ export default function App() {
 }
 
 function Scorer() {
-  const [han, setHan] = useState(1);
+  const [manualHan, setManualHan] = useState(1);
   const [fu, setFu] = useState(30);
   const [winner, setWinner] = useState<Winner>("nonDealer");
   const [winBy, setWinBy] = useState<WinBy>("ron");
+  const [closed, setClosed] = useState(true);
+  const [selected, setSelected] = useState<YakuId[]>([]);
+  const [counters, setCounters] = useState<HanCounters>(ZERO_COUNTERS);
 
   useEffect(() => {
     if (Platform.OS !== "web" || typeof document === "undefined") return;
@@ -50,8 +56,31 @@ function Scorer() {
     document.documentElement.style.backgroundColor = colors.bg;
   }, []);
 
-  const score = scoreHand({ han, fu, winner, winBy });
+  const yakuSum = sumYaku({ closed, selected, counters });
+  const driven = yakuSum.active;
+  const han = driven && yakuSum.yakuman === 0 ? yakuSum.han : manualHan;
+  const score = scoreHand({
+    han: Math.max(han, 1),
+    fu,
+    winner,
+    winBy,
+    yakuman: driven ? yakuSum.yakuman : 0,
+  });
   const lines = paymentLines(score);
+  const badge = limitLabel(score);
+  const hanGridValue: number | null = !driven
+    ? manualHan
+    : yakuSum.yakuman > 0
+      ? null
+      : yakuSum.han >= 13
+        ? 13
+        : yakuSum.han;
+
+  function chooseManualHan(value: number) {
+    setManualHan(value);
+    setSelected([]);
+    setCounters(ZERO_COUNTERS);
+  }
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -69,15 +98,20 @@ function Scorer() {
               {formatPoints(score.total)}
             </Text>
             <View style={styles.badgeSlot}>
-              {score.limit ? (
+              {badge ? (
                 <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{LIMIT_LABELS[score.limit]}</Text>
+                  <Text style={styles.badgeText}>{badge}</Text>
                 </View>
               ) : null}
             </View>
             <Text style={styles.meta} testID="hand-summary">
-              {fu} фу · {formatHan(han)} хан
+              {score.yakumanCount > 0 ? `${fu} фу · якуман` : `${fu} фу · ${formatHan(han)} хан`}
             </Text>
+            {driven ? (
+              <Text style={styles.yakuHan} testID="yaku-han">
+                {score.yakumanCount > 0 ? `Из яку: ${badge}` : `Из яку: ${yakuSum.han}`}
+              </Text>
+            ) : null}
             <Text style={styles.who} testID="winner-summary">
               {winnerLabel(winner)} · {winByLabel(winBy)}
             </Text>
@@ -97,12 +131,14 @@ function Scorer() {
           <Section title="Хан">
             <ChoiceGrid
               options={HAN_VALUES}
-              value={han}
-              onChange={setHan}
+              value={hanGridValue}
+              onChange={chooseManualHan}
               labelOf={(value) => (value >= 13 ? "13+" : String(value))}
               testIDOf={(value) => `han-${value}`}
             />
-            {han >= 13 ? (
+            {driven ? (
+              <Hint>Список яку сейчас задаёт хан. Нажатие на хан вернёт ручной ввод.</Hint>
+            ) : han >= 13 ? (
               <Hint>13 и больше хан — кадзоэ-якуман, очки одного якмана.</Hint>
             ) : han >= 5 ? (
               <Hint>С 5 хан число фу на очки не влияет.</Hint>
@@ -156,8 +192,27 @@ function Scorer() {
             </View>
           </Section>
 
+          <Section title="Яку">
+            <YakuPicker
+              closed={closed}
+              onClosedChange={(next) => {
+                setClosed(next);
+                if (!next) setSelected((current) => dropClosedOnly(current));
+              }}
+              selected={selected}
+              onToggle={(id) => setSelected((current) => toggleYaku(current, id))}
+              counters={counters}
+              onCounter={(id, value) => setCounters((current) => ({ ...current, [id]: value }))}
+              sum={yakuSum}
+              onClear={() => {
+                setSelected([]);
+                setCounters(ZERO_COUNTERS);
+              }}
+            />
+          </Section>
+
           <Text style={styles.footer}>
-            Обычный счёт, без кириагэ-манган. Яку здесь не выбираются.
+            Обычный счёт, без кириагэ-манган. Риити и дабури-риити не складываются.
           </Text>
         </ScrollView>
       </View>
@@ -186,7 +241,7 @@ function ChoiceGrid<T extends number>({
   testIDOf,
 }: {
   options: readonly T[];
-  value: T;
+  value: T | null;
   onChange: (value: T) => void;
   labelOf: (value: T) => string;
   testIDOf: (value: T) => string;
@@ -323,6 +378,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 2,
     marginBottom: 6,
+  },
+  yakuHan: {
+    color: colors.gold,
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 4,
   },
   pay: {
     color: colors.pay,

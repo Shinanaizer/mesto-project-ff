@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   formatHan,
   formatPoints,
+  limitLabel,
   paymentLines,
   scoreHand,
   type Limit,
@@ -317,4 +318,46 @@ describe("rejects scores that are not a hand", () => {
       );
     });
   }
+});
+
+describe("named yakuman ignores han", () => {
+  it("one yakuman is the yakuman limit, not the han score", () => {
+    const score = scoreHand({ fu: 30, han: 4, winner: "nonDealer", winBy: "ron", yakuman: 1 });
+    assert.equal(score.total, 32000);
+    assert.equal(score.limit, "yakuman");
+    assert.equal(score.yakumanCount, 1);
+    assert.equal(limitLabel(score), "Якуман");
+  });
+
+  it("two yakuman is a double yakuman", () => {
+    const ron = scoreHand({ fu: 40, han: 1, winner: "nonDealer", winBy: "ron", yakuman: 2 });
+    assert.equal(ron.total, 64000);
+    assert.equal(limitLabel(ron), "Двойной якуман");
+
+    const tsumo = scoreHand({ fu: 30, han: 13, winner: "dealer", winBy: "tsumo", yakuman: 2 });
+    assert.equal(tsumo.total, 96000);
+    assert.deepEqual(tsumo.payments, [{ payer: "nonDealer", points: 32000, count: 3 }]);
+  });
+
+  it("a non-dealer yakuman tsumo splits 8000 and 16000", () => {
+    const score = scoreHand({ fu: 30, han: 1, winner: "nonDealer", winBy: "tsumo", yakuman: 1 });
+    assert.equal(score.total, 32000);
+    assert.deepEqual(score.payments, [
+      { payer: "nonDealer", points: 8000, count: 2 },
+      { payer: "dealer", points: 16000, count: 1 },
+    ]);
+  });
+
+  it("three yakuman multiplies the limit", () => {
+    const score = scoreHand({ fu: 30, han: 1, winner: "nonDealer", winBy: "ron", yakuman: 3 });
+    assert.equal(score.total, 96000);
+    assert.equal(limitLabel(score), "Якуман × 3");
+  });
+
+  it("rejects a fractional yakuman count", () => {
+    assert.throws(
+      () => scoreHand({ fu: 30, han: 1, winner: "nonDealer", winBy: "ron", yakuman: 1.5 }),
+      RangeError,
+    );
+  });
 });
