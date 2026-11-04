@@ -93,7 +93,7 @@ function Scorer() {
             >
               {score ? formatPoints(score.total) : "—"}
             </Text>
-            <View style={styles.badgeSlot}>
+            <View style={styles.lineSlot}>
               {badge ? (
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>{badge}</Text>
@@ -105,14 +105,14 @@ function Scorer() {
                 ? "якуман"
                 : `${fuText} · ${han < 1 ? "нет хан" : `${formatHan(han)} хан`}`}
             </Text>
-            <View style={styles.noteSlot}>
+            <View style={styles.lineSlot}>
               {fuDecision.status === "implied" && yakuSum.yakuman === 0 ? (
-                <Text style={styles.yakuHan} testID="fu-from-yaku" numberOfLines={2}>
+                <Text style={styles.yakuHan} testID="fu-from-yaku" numberOfLines={1}>
                   Фу из яку: {fuDecision.fu}
                 </Text>
               ) : null}
               {fuDecision.status === "conflict" && yakuSum.yakuman === 0 ? (
-                <Text style={styles.yakuHan} testID="fu-conflict" numberOfLines={2}>
+                <Text style={styles.yakuHan} testID="fu-conflict" numberOfLines={1}>
                   Фу яку не сходятся. Задайте фу вручную.
                 </Text>
               ) : null}
@@ -354,8 +354,8 @@ const styles = StyleSheet.create({
   top: {
     paddingHorizontal: 16,
     paddingTop: 8,
-    paddingBottom: 12,
-    gap: 10,
+    paddingBottom: 8,
+    gap: 8,
   },
   title: {
     color: colors.gold,
@@ -369,8 +369,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.gold,
     paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 16,
+    paddingTop: 8,
+    paddingBottom: 8,
     alignItems: "center",
   },
   eyebrow: {
@@ -383,53 +383,51 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 64,
     fontWeight: "800",
-    lineHeight: 72,
+    lineHeight: 66,
     fontVariant: ["tabular-nums"],
   },
   pointsEmpty: {
     color: colors.muted,
     fontSize: 64,
     fontWeight: "800",
-    lineHeight: 72,
+    lineHeight: 66,
   },
-  badgeSlot: {
-    minHeight: 32,
+  lineSlot: {
+    height: 24,
+    width: "100%",
+    alignItems: "center",
     justifyContent: "center",
-    marginBottom: 4,
+    overflow: "hidden",
   },
   badge: {
     backgroundColor: colors.gold,
     borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 1,
   },
   badgeText: {
     color: colors.ink,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "800",
+    lineHeight: 20,
   },
   meta: {
     color: colors.text,
     fontSize: 18,
     fontWeight: "700",
+    lineHeight: 24,
   },
   who: {
     color: colors.muted,
     fontSize: 16,
-    marginTop: 2,
-    marginBottom: 6,
-  },
-  noteSlot: {
-    height: 48,
-    width: "100%",
-    alignItems: "center",
-    justifyContent: "center",
+    lineHeight: 22,
   },
   detailSlot: {
-    height: 24,
+    height: 22,
     width: "100%",
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
   yakuHan: {
     color: colors.gold,
@@ -439,16 +437,17 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   paySlot: {
-    height: 48,
+    height: 44,
     width: "100%",
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
   pay: {
     color: colors.pay,
     fontSize: 18,
     fontWeight: "600",
-    lineHeight: 24,
+    lineHeight: 22,
     textAlign: "center",
   },
   scroll: {
