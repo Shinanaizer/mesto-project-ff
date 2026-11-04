@@ -23,6 +23,7 @@ import {
 import { ZERO_COUNTERS, type HanCounters, type YakuId } from "./src/yaku/catalog";
 import { YakuPicker } from "./src/yaku/YakuPicker";
 import { dropClosedOnly, impliedFuValues, sumYaku, toggleYaku } from "./src/yaku/sum";
+import { HandBuilder } from "./src/hand/HandBuilder";
 
 const colors = {
   bg: "#10241c",
@@ -37,9 +38,56 @@ const colors = {
 };
 
 export default function App() {
+  const [screen, setScreen] = useState<"counter" | "hand">("counter");
+
+  useEffect(() => {
+    if (Platform.OS !== "web" || typeof document === "undefined") return;
+    document.title = "Счёт ричи";
+    document.documentElement.lang = "ru";
+    document.body.style.backgroundColor = colors.bg;
+    document.documentElement.style.backgroundColor = colors.bg;
+  }, []);
+
   return (
     <SafeAreaProvider style={styles.provider}>
-      <Scorer />
+      <SafeAreaView style={styles.screen}>
+        <StatusBar style="light" />
+        <View style={styles.column}>
+          <Text style={styles.appTitle}>Счёт ричи</Text>
+          <View style={styles.switchRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ selected: screen === "counter" }}
+              onPress={() => setScreen("counter")}
+              style={[styles.switchButton, screen === "counter" && styles.switchOn]}
+              testID="screen-counter"
+            >
+              <Text style={[styles.switchText, screen === "counter" && styles.switchTextOn]}>Счётчик</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ selected: screen === "hand" }}
+              onPress={() => setScreen("hand")}
+              style={[styles.switchButton, screen === "hand" && styles.switchOn]}
+              testID="screen-hand"
+            >
+              <Text style={[styles.switchText, screen === "hand" && styles.switchTextOn]}>Рука</Text>
+            </Pressable>
+          </View>
+          <View
+            style={[styles.fill, screen !== "counter" && styles.hidden]}
+            pointerEvents={screen === "counter" ? "auto" : "none"}
+          >
+            <Scorer />
+          </View>
+          <View
+            style={[styles.fill, screen !== "hand" && styles.hidden]}
+            pointerEvents={screen === "hand" ? "auto" : "none"}
+          >
+            <HandBuilder />
+          </View>
+        </View>
+      </SafeAreaView>
     </SafeAreaProvider>
   );
 }
@@ -52,14 +100,6 @@ function Scorer() {
   const [closed, setClosed] = useState(true);
   const [selected, setSelected] = useState<YakuId[]>([]);
   const [counters, setCounters] = useState<HanCounters>(ZERO_COUNTERS);
-
-  useEffect(() => {
-    if (Platform.OS !== "web" || typeof document === "undefined") return;
-    document.title = "Счёт ричи";
-    document.documentElement.lang = "ru";
-    document.body.style.backgroundColor = colors.bg;
-    document.documentElement.style.backgroundColor = colors.bg;
-  }, []);
 
   const yakuSum = sumYaku({ closed, selected, counters });
   const impliedFu = impliedFuValues(selected, closed);
@@ -79,12 +119,9 @@ function Scorer() {
   const fuText = fuLabel(fuDecision);
 
   return (
-    <SafeAreaView style={styles.screen}>
-      <StatusBar style="light" />
-      <View style={styles.column}>
-        <View style={styles.top}>
-          <Text style={styles.title}>Счёт ричи</Text>
-          <View style={styles.result} accessibilityRole="summary">
+    <View style={styles.fill}>
+      <View style={styles.top}>
+        <View style={styles.result} accessibilityRole="summary">
             <Text style={styles.eyebrow}>Общие очки</Text>
             <Text
               style={score ? styles.points : styles.pointsEmpty}
@@ -236,8 +273,7 @@ function Scorer() {
             Обычный счёт, без кириагэ-манган. Риити и дабури-риити не складываются.
           </Text>
         </ScrollView>
-      </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -350,6 +386,48 @@ const styles = StyleSheet.create({
     flex: 1,
     width: "100%",
     maxWidth: 480,
+  },
+  fill: {
+    flex: 1,
+  },
+  hidden: {
+    display: "none",
+  },
+  appTitle: {
+    color: colors.gold,
+    fontSize: 22,
+    fontWeight: "700",
+    textAlign: "center",
+    paddingTop: 8,
+  },
+  switchRow: {
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  switchButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.chipEdge,
+    backgroundColor: colors.chip,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  switchOn: {
+    backgroundColor: colors.gold,
+    borderColor: colors.gold,
+  },
+  switchText: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  switchTextOn: {
+    color: colors.ink,
   },
   top: {
     paddingHorizontal: 16,
