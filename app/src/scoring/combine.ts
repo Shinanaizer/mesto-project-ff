@@ -3,6 +3,9 @@ import { scoreHand, type Score, type WinBy, type Winner } from "./score";
 /** Fu the counter can show. 0 means the user has not set fu. */
 export const FU_LADDER = [0, 20, 25, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130] as const;
 
+/** Fu shown when the screen opens. 0 is still available one step below 20. */
+export const DEFAULT_FU = 30;
+
 export const EXTRA_HAN_MAX = 13;
 
 export function changeFu(current: number, delta: -1 | 1): number {

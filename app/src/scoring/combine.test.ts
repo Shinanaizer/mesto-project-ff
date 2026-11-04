@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { changeExtraHan, changeFu, decideFu, scoreParts, totalHan } from "./combine";
+import { changeExtraHan, changeFu, decideFu, DEFAULT_FU, scoreParts, totalHan } from "./combine";
 import { ZERO_COUNTERS } from "../yaku/catalog";
 import { impliedFuValues, sumYaku } from "../yaku/sum";
 
@@ -156,6 +156,12 @@ describe("yaku with fixed fu score when the counter is 0", () => {
 });
 
 describe("counter steps", () => {
+  it("opens on 30 fu and can still step down to unset", () => {
+    assert.equal(DEFAULT_FU, 30);
+    assert.equal(changeFu(DEFAULT_FU, -1), 25);
+    assert.equal(changeFu(20, -1), 0);
+  });
+
   it("starts fu at 0 and walks the usual values", () => {
     assert.equal(changeFu(0, 1), 20);
     assert.equal(changeFu(20, 1), 25);

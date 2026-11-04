@@ -2,7 +2,14 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useState, type ReactNode } from "react";
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { changeExtraHan, changeFu, decideFu, scoreParts, type FuDecision } from "./src/scoring/combine";
+import {
+  changeExtraHan,
+  changeFu,
+  decideFu,
+  DEFAULT_FU,
+  scoreParts,
+  type FuDecision,
+} from "./src/scoring/combine";
 import {
   formatHan,
   formatPoints,
@@ -39,7 +46,7 @@ export default function App() {
 
 function Scorer() {
   const [extraHan, setExtraHan] = useState(0);
-  const [fu, setFu] = useState(0);
+  const [fu, setFu] = useState(DEFAULT_FU);
   const [winner, setWinner] = useState<Winner>("nonDealer");
   const [winBy, setWinBy] = useState<WinBy>("ron");
   const [closed, setClosed] = useState(true);
@@ -98,34 +105,43 @@ function Scorer() {
                 ? "якуман"
                 : `${fuText} · ${han < 1 ? "нет хан" : `${formatHan(han)} хан`}`}
             </Text>
-            {fuDecision.status === "implied" && yakuSum.yakuman === 0 ? (
-              <Text style={styles.yakuHan} testID="fu-from-yaku">
-                Фу из яку: {fuDecision.fu}
-              </Text>
-            ) : null}
-            {fuDecision.status === "conflict" && yakuSum.yakuman === 0 ? (
-              <Text style={styles.yakuHan} testID="fu-conflict">
-                Фу яку не сходятся. Задайте фу вручную.
-              </Text>
-            ) : null}
-            {yakuSum.active ? (
-              <Text style={styles.yakuHan} testID="yaku-han">
-                {yakuSum.yakuman > 0 ? `Из яку: ${badge}` : `Из яку: ${yakuSum.han}`}
-              </Text>
-            ) : null}
-            {extraHan > 0 && yakuSum.yakuman === 0 ? (
-              <Text style={styles.yakuHan} testID="extra-han">
-                Ещё хан: {extraHan}
-              </Text>
-            ) : null}
+            <View style={styles.noteSlot}>
+              {fuDecision.status === "implied" && yakuSum.yakuman === 0 ? (
+                <Text style={styles.yakuHan} testID="fu-from-yaku" numberOfLines={2}>
+                  Фу из яку: {fuDecision.fu}
+                </Text>
+              ) : null}
+              {fuDecision.status === "conflict" && yakuSum.yakuman === 0 ? (
+                <Text style={styles.yakuHan} testID="fu-conflict" numberOfLines={2}>
+                  Фу яку не сходятся. Задайте фу вручную.
+                </Text>
+              ) : null}
+            </View>
+            <View style={styles.detailSlot}>
+              {yakuSum.active ? (
+                <Text style={styles.yakuHan} testID="yaku-han" numberOfLines={1}>
+                  {yakuSum.yakuman > 0 ? `Из яку: ${badge}` : `Из яку: ${yakuSum.han}`}
+                </Text>
+              ) : null}
+            </View>
+            <View style={styles.detailSlot}>
+              {extraHan > 0 && yakuSum.yakuman === 0 ? (
+                <Text style={styles.yakuHan} testID="extra-han" numberOfLines={1}>
+                  Ещё хан: {extraHan}
+                </Text>
+              ) : null}
+            </View>
             <Text style={styles.who} testID="winner-summary">
               {winnerLabel(winner)} · {winByLabel(winBy)}
             </Text>
-            {lines.map((line) => (
-              <Text key={line} style={styles.pay}>
-                {line}
+            <View style={styles.paySlot}>
+              <Text style={styles.pay} numberOfLines={1}>
+                {lines[0] ?? ""}
               </Text>
-            ))}
+              <Text style={styles.pay} numberOfLines={1}>
+                {lines[1] ?? ""}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -154,7 +170,7 @@ function Scorer() {
           <Section title="Фу">
             <ValueCounter
               value={fu}
-              description="0 — фу берутся из яку, если они фиксированы. От 20 это значение важнее."
+              description="По умолчанию 30. Ноль берёт фу у пинфу и тиитойцу. От 20 заданное число важнее."
               decreaseLabel="Фу меньше"
               increaseLabel="Фу больше"
               testID="fu"
@@ -403,16 +419,36 @@ const styles = StyleSheet.create({
     marginTop: 2,
     marginBottom: 6,
   },
+  noteSlot: {
+    height: 48,
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  detailSlot: {
+    height: 24,
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   yakuHan: {
     color: colors.gold,
     fontSize: 16,
     fontWeight: "700",
-    marginBottom: 4,
+    lineHeight: 22,
+    textAlign: "center",
+  },
+  paySlot: {
+    height: 48,
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
   },
   pay: {
     color: colors.pay,
     fontSize: 18,
     fontWeight: "600",
+    lineHeight: 24,
     textAlign: "center",
   },
   scroll: {
