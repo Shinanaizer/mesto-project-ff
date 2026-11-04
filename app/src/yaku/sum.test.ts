@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { scoreHand } from "../scoring/score";
 import { ZERO_COUNTERS, type HanCounters, type YakuId } from "./catalog";
-import { dropClosedOnly, sumYaku, toggleYaku } from "./sum";
+import { dropClosedOnly, impliedFuValues, sumYaku, toggleYaku } from "./sum";
 
 function counters(partial: Partial<HanCounters> = {}): HanCounters {
   return { ...ZERO_COUNTERS, ...partial };
@@ -116,6 +116,25 @@ describe("yakuman replaces han", () => {
       active: false,
     });
     assert.equal(hand(["daisangen"], false).yakuman, 1);
+  });
+});
+
+describe("fixed fu implied by yaku", () => {
+  it("reads 20 from pinfu and ignores tanyao", () => {
+    assert.deepEqual(impliedFuValues(["pinfu", "tanyao"], true), [20]);
+  });
+
+  it("reads 25 from chiitoitsu", () => {
+    assert.deepEqual(impliedFuValues(["chiitoitsu"], true), [25]);
+  });
+
+  it("keeps both values when they differ", () => {
+    assert.deepEqual(impliedFuValues(["pinfu", "chiitoitsu"], true), [20, 25]);
+  });
+
+  it("is empty for an ordinary yaku and for closed-only yaku on an open hand", () => {
+    assert.deepEqual(impliedFuValues(["tanyao"], true), []);
+    assert.deepEqual(impliedFuValues(["pinfu", "chiitoitsu"], false), []);
   });
 });
 

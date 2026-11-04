@@ -77,6 +77,19 @@ export function clampCounter(value: number): number {
   return value;
 }
 
+/** Distinct fixed fu of the yaku that actually count. Closed-only yaku are skipped on an open hand. */
+export function impliedFuValues(selected: readonly YakuId[], closed: boolean): number[] {
+  const values: number[] = [];
+  for (const id of new Set(selected)) {
+    const yaku = YAKU_BY_ID.get(id);
+    if (!yaku) throw new Error(`Неизвестное яку: ${id}`);
+    if (yaku.closedOnly && !closed) continue;
+    if (!("fixedFu" in yaku) || yaku.fixedFu == null) continue;
+    if (!values.includes(yaku.fixedFu)) values.push(yaku.fixedFu);
+  }
+  return values;
+}
+
 export function yakuHanText(id: YakuId): string {
   const yaku = YAKU_BY_ID.get(id);
   if (!yaku) return "";

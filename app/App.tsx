@@ -2,7 +2,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useState, type ReactNode } from "react";
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { changeExtraHan, changeFu, scoreParts } from "./src/scoring/combine";
+import { changeExtraHan, changeFu, decideFu, scoreParts, type FuDecision } from "./src/scoring/combine";
 import {
   formatHan,
   formatPoints,
@@ -15,7 +15,7 @@ import {
 } from "./src/scoring/score";
 import { ZERO_COUNTERS, type HanCounters, type YakuId } from "./src/yaku/catalog";
 import { YakuPicker } from "./src/yaku/YakuPicker";
-import { dropClosedOnly, sumYaku, toggleYaku } from "./src/yaku/sum";
+import { dropClosedOnly, impliedFuValues, sumYaku, toggleYaku } from "./src/yaku/sum";
 
 const colors = {
   bg: "#10241c",
@@ -55,17 +55,21 @@ function Scorer() {
   }, []);
 
   const yakuSum = sumYaku({ closed, selected, counters });
+  const impliedFu = impliedFuValues(selected, closed);
+  const fuDecision = decideFu(fu, impliedFu);
   const han = yakuSum.yakuman > 0 ? 0 : yakuSum.han + extraHan;
   const score = scoreParts({
     yakuHan: yakuSum.han,
     extraHan,
     fu,
+    impliedFu,
     yakuman: yakuSum.yakuman,
     winner,
     winBy,
   });
   const lines = score ? paymentLines(score) : [];
   const badge = score ? limitLabel(score) : null;
+  const fuText = fuLabel(fuDecision);
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -92,8 +96,18 @@ function Scorer() {
             <Text style={styles.meta} testID="hand-summary">
               {yakuSum.yakuman > 0
                 ? "якуман"
-                : `${fu < 20 ? "фу не заданы" : `${fu} фу`} · ${han < 1 ? "нет хан" : `${formatHan(han)} хан`}`}
+                : `${fuText} · ${han < 1 ? "нет хан" : `${formatHan(han)} хан`}`}
             </Text>
+            {fuDecision.status === "implied" && yakuSum.yakuman === 0 ? (
+              <Text style={styles.yakuHan} testID="fu-from-yaku">
+                Фу из яку: {fuDecision.fu}
+              </Text>
+            ) : null}
+            {fuDecision.status === "conflict" && yakuSum.yakuman === 0 ? (
+              <Text style={styles.yakuHan} testID="fu-conflict">
+                Фу яку не сходятся. Задайте фу вручную.
+              </Text>
+            ) : null}
             {yakuSum.active ? (
               <Text style={styles.yakuHan} testID="yaku-han">
                 {yakuSum.yakuman > 0 ? `Из яку: ${badge}` : `Из яку: ${yakuSum.han}`}
@@ -140,16 +154,13 @@ function Scorer() {
           <Section title="Фу">
             <ValueCounter
               value={fu}
-              description="Только этот счётчик. 0 — очки не считаются, от 20 идёт обычная таблица."
+              description="0 — фу берутся из яку, если они фиксированы. От 20 это значение важнее."
               decreaseLabel="Фу меньше"
               increaseLabel="Фу больше"
               testID="fu"
               onDecrease={() => setFu((current) => changeFu(current, -1))}
               onIncrease={() => setFu((current) => changeFu(current, 1))}
             />
-            {fu === 20 && winBy === "ron" ? (
-              <Hint>20 фу обычно только у закрытого пиньфу по цумо.</Hint>
-            ) : null}
           </Section>
 
           <Section title="Кто выиграл">
@@ -212,6 +223,12 @@ function Scorer() {
       </View>
     </SafeAreaView>
   );
+}
+
+function fuLabel(decision: FuDecision): string {
+  if (decision.status === "explicit" || decision.status === "implied") return `${decision.fu} фу`;
+  if (decision.status === "conflict") return "фу не сходятся";
+  return "фу не заданы";
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {

@@ -31,25 +31,53 @@ export interface HandParts {
   /** Han from the yaku list and its dora counters. Not the extra han counter. */
   yakuHan: number;
   extraHan: number;
-  /** Exactly the fu counter. 0 means unset. */
+  /** Exactly the fu counter. 0 means unset. A value of 20 or more wins over implied fu. */
   fu: number;
+  /** Fixed fu of the selected yaku that are actually scoring. Empty when none fix fu. */
+  impliedFu?: readonly number[];
   yakuman: number;
   winner: Winner;
   winBy: WinBy;
 }
 
+export type FuDecision =
+  | { status: "explicit"; fu: number }
+  | { status: "implied"; fu: number }
+  | { status: "unknown" }
+  | { status: "conflict" };
+
 /**
- * Points from yaku han + extra han, and the fu counter alone.
- * Returns null when fu is below 20 or there is no han, unless a yakuman
- * sets the limit. Yakuman does not use fu and does not add extra han.
+ * The fu counter at 20 or above is the user's choice and always wins.
+ * At 0, a single implied value is used. Several different implied values
+ * are a conflict. No implied value leaves fu unknown.
  */
-export function scoreParts(parts: HandParts): Score | null {
-  if (!Number.isSafeInteger(parts.fu) || parts.fu < 0) {
+export function decideFu(counter: number, implied: readonly number[] = []): FuDecision {
+  if (!Number.isSafeInteger(counter) || counter < 0) {
     throw new RangeError("Фу должны быть целым от 0");
   }
+  for (const value of implied) {
+    if (!Number.isSafeInteger(value) || value < 20) {
+      throw new RangeError("Фиксированные фу яку должны быть целым от 20");
+    }
+  }
+  if (counter >= 20) return { status: "explicit", fu: counter };
+  const unique = [...new Set(implied)];
+  if (unique.length === 0) return { status: "unknown" };
+  if (unique.length > 1) return { status: "conflict" };
+  return { status: "implied", fu: unique[0] };
+}
+
+/**
+ * Points from yaku han + extra han, and either the fu counter or fixed fu
+ * implied by the selected yaku. Returns null when fu is unknown, the implied
+ * values conflict, or there is no han. A yakuman sets the limit without fu
+ * and does not add extra han.
+ */
+export function scoreParts(parts: HandParts): Score | null {
   if (!Number.isSafeInteger(parts.yakuman) || parts.yakuman < 0) {
     throw new RangeError("Число якуманов должно быть целым от 0");
   }
+  const decision = decideFu(parts.fu, parts.impliedFu ?? []);
   if (parts.yakuman >= 1) {
     return scoreHand({
       han: 1,
@@ -60,10 +88,11 @@ export function scoreParts(parts: HandParts): Score | null {
     });
   }
   const han = totalHan(parts.yakuHan, parts.extraHan);
-  if (han < 1 || parts.fu < 20) return null;
+  if (han < 1) return null;
+  if (decision.status !== "explicit" && decision.status !== "implied") return null;
   return scoreHand({
     han,
-    fu: parts.fu,
+    fu: decision.fu,
     winner: parts.winner,
     winBy: parts.winBy,
   });

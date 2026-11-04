@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { changeExtraHan, changeFu, scoreParts, totalHan } from "./combine";
+import { changeExtraHan, changeFu, decideFu, scoreParts, totalHan } from "./combine";
+import { ZERO_COUNTERS } from "../yaku/catalog";
+import { impliedFuValues, sumYaku } from "../yaku/sum";
 
 const base = {
   winner: "nonDealer" as const,
@@ -70,6 +72,86 @@ describe("yakuman ignores both counters", () => {
     });
     assert.equal(score?.total, 32000);
     assert.equal(score?.limit, "yakuman");
+  });
+});
+
+describe("yaku with fixed fu score when the counter is 0", () => {
+  it("scores pinfu and tanyao at 20 fu", () => {
+    const selected = ["pinfu", "tanyao"] as const;
+    const sum = sumYaku({ closed: true, selected, counters: ZERO_COUNTERS });
+    const implied = impliedFuValues(selected, true);
+    assert.deepEqual(implied, [20]);
+    const score = scoreParts({ ...base, yakuHan: sum.han, extraHan: 0, fu: 0, impliedFu: implied });
+    assert.equal(decideFu(0, implied).status, "implied");
+    assert.equal(score?.fu, 20);
+    assert.equal(score?.han, 2);
+    assert.equal(score?.total, 1300);
+  });
+
+  it("scores chiitoitsu at 25 fu", () => {
+    const selected = ["chiitoitsu"] as const;
+    const sum = sumYaku({ closed: true, selected, counters: ZERO_COUNTERS });
+    const implied = impliedFuValues(selected, true);
+    assert.deepEqual(implied, [25]);
+    const score = scoreParts({ ...base, yakuHan: sum.han, extraHan: 0, fu: 0, impliedFu: implied });
+    assert.equal(score?.fu, 25);
+    assert.equal(score?.han, 2);
+    assert.equal(score?.total, 1600);
+  });
+
+  it("keeps pinfu tsumo at 20 fu; menzen tsumo is only extra han", () => {
+    const selected = ["pinfu", "menzenTsumo"] as const;
+    const sum = sumYaku({ closed: true, selected, counters: ZERO_COUNTERS });
+    const implied = impliedFuValues(selected, true);
+    assert.deepEqual(implied, [20]);
+    assert.equal(sum.han, 2);
+    const score = scoreParts({
+      ...base,
+      yakuHan: sum.han,
+      extraHan: 0,
+      fu: 0,
+      impliedFu: implied,
+      winBy: "tsumo",
+    });
+    assert.equal(score?.fu, 20);
+    assert.equal(score?.han, 2);
+  });
+
+  it("lets an explicit fu counter override the implied value", () => {
+    const implied = impliedFuValues(["pinfu", "tanyao"], true);
+    const score = scoreParts({ ...base, yakuHan: 2, extraHan: 0, fu: 30, impliedFu: implied });
+    assert.equal(decideFu(30, implied).status, "explicit");
+    assert.equal(score?.fu, 30);
+    assert.equal(score?.total, 2000);
+  });
+
+  it("shows no points when implied fu values conflict and the counter is 0", () => {
+    const implied = impliedFuValues(["pinfu", "chiitoitsu"], true);
+    assert.deepEqual(implied, [20, 25]);
+    assert.equal(decideFu(0, implied).status, "conflict");
+    assert.equal(
+      scoreParts({ ...base, yakuHan: 3, extraHan: 0, fu: 0, impliedFu: implied }),
+      null,
+    );
+  });
+
+  it("uses the counter even when implied fu values conflict", () => {
+    const implied = impliedFuValues(["pinfu", "chiitoitsu"], true);
+    const score = scoreParts({ ...base, yakuHan: 3, extraHan: 0, fu: 30, impliedFu: implied });
+    assert.equal(score?.fu, 30);
+    assert.equal(score?.han, 3);
+    assert.equal(score?.total, 3900);
+  });
+
+  it("still shows no points for an ordinary yaku when fu is unset", () => {
+    const implied = impliedFuValues(["tanyao"], true);
+    assert.deepEqual(implied, []);
+    assert.equal(decideFu(0, implied).status, "unknown");
+    assert.equal(scoreParts({ ...base, yakuHan: 1, extraHan: 0, fu: 0, impliedFu: implied }), null);
+  });
+
+  it("ignores closed-only fixed fu when the hand is open", () => {
+    assert.deepEqual(impliedFuValues(["pinfu", "chiitoitsu", "tanyao"], false), []);
   });
 });
 

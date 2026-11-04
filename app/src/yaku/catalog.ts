@@ -16,6 +16,11 @@ export interface YakuDef {
   /** Han on an open hand. Null means the yaku is closed-only. */
   openHan: number | null;
   yakuman: 0 | 1 | 2;
+  /**
+   * Fu this yaku always has, when it is actually scoring.
+   * Pinfu is 20 (ron or tsumo). Chiitoitsu is 25.
+   */
+  fixedFu?: number;
 }
 
 export const YAKU = [
@@ -68,6 +73,7 @@ export const YAKU = [
     closedHan: 1,
     openHan: null,
     yakuman: 0,
+    fixedFu: 20,
   },
   {
     id: "tanyao",
@@ -178,6 +184,7 @@ export const YAKU = [
     closedHan: 2,
     openHan: null,
     yakuman: 0,
+    fixedFu: 25,
   },
   {
     id: "honroutou",
