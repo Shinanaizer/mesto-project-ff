@@ -2,14 +2,12 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useState, type ReactNode } from "react";
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { changeExtraHan, changeFu, scoreParts } from "./src/scoring/combine";
 import {
-  FU_VALUES,
-  HAN_VALUES,
   formatHan,
   formatPoints,
   limitLabel,
   paymentLines,
-  scoreHand,
   winByLabel,
   winnerLabel,
   type Winner,
@@ -40,8 +38,8 @@ export default function App() {
 }
 
 function Scorer() {
-  const [manualHan, setManualHan] = useState(1);
-  const [fu, setFu] = useState(30);
+  const [extraHan, setExtraHan] = useState(0);
+  const [fu, setFu] = useState(0);
   const [winner, setWinner] = useState<Winner>("nonDealer");
   const [winBy, setWinBy] = useState<WinBy>("ron");
   const [closed, setClosed] = useState(true);
@@ -57,30 +55,17 @@ function Scorer() {
   }, []);
 
   const yakuSum = sumYaku({ closed, selected, counters });
-  const driven = yakuSum.active;
-  const han = driven && yakuSum.yakuman === 0 ? yakuSum.han : manualHan;
-  const score = scoreHand({
-    han: Math.max(han, 1),
+  const han = yakuSum.yakuman > 0 ? 0 : yakuSum.han + extraHan;
+  const score = scoreParts({
+    yakuHan: yakuSum.han,
+    extraHan,
     fu,
+    yakuman: yakuSum.yakuman,
     winner,
     winBy,
-    yakuman: driven ? yakuSum.yakuman : 0,
   });
-  const lines = paymentLines(score);
-  const badge = limitLabel(score);
-  const hanGridValue: number | null = !driven
-    ? manualHan
-    : yakuSum.yakuman > 0
-      ? null
-      : yakuSum.han >= 13
-        ? 13
-        : yakuSum.han;
-
-  function chooseManualHan(value: number) {
-    setManualHan(value);
-    setSelected([]);
-    setCounters(ZERO_COUNTERS);
-  }
+  const lines = score ? paymentLines(score) : [];
+  const badge = score ? limitLabel(score) : null;
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -91,11 +76,11 @@ function Scorer() {
           <View style={styles.result} accessibilityRole="summary">
             <Text style={styles.eyebrow}>Общие очки</Text>
             <Text
-              style={styles.points}
+              style={score ? styles.points : styles.pointsEmpty}
               testID="total-points"
               accessibilityLiveRegion="polite"
             >
-              {formatPoints(score.total)}
+              {score ? formatPoints(score.total) : "—"}
             </Text>
             <View style={styles.badgeSlot}>
               {badge ? (
@@ -105,11 +90,18 @@ function Scorer() {
               ) : null}
             </View>
             <Text style={styles.meta} testID="hand-summary">
-              {score.yakumanCount > 0 ? `${fu} фу · якуман` : `${fu} фу · ${formatHan(han)} хан`}
+              {yakuSum.yakuman > 0
+                ? "якуман"
+                : `${fu < 20 ? "фу не заданы" : `${fu} фу`} · ${han < 1 ? "нет хан" : `${formatHan(han)} хан`}`}
             </Text>
-            {driven ? (
+            {yakuSum.active ? (
               <Text style={styles.yakuHan} testID="yaku-han">
-                {score.yakumanCount > 0 ? `Из яку: ${badge}` : `Из яку: ${yakuSum.han}`}
+                {yakuSum.yakuman > 0 ? `Из яку: ${badge}` : `Из яку: ${yakuSum.han}`}
+              </Text>
+            ) : null}
+            {extraHan > 0 && yakuSum.yakuman === 0 ? (
+              <Text style={styles.yakuHan} testID="extra-han">
+                Ещё хан: {extraHan}
               </Text>
             ) : null}
             <Text style={styles.who} testID="winner-summary">
@@ -129,29 +121,31 @@ function Scorer() {
           keyboardShouldPersistTaps="handled"
         >
           <Section title="Хан">
-            <ChoiceGrid
-              options={HAN_VALUES}
-              value={hanGridValue}
-              onChange={chooseManualHan}
-              labelOf={(value) => (value >= 13 ? "13+" : String(value))}
-              testIDOf={(value) => `han-${value}`}
+            <ValueCounter
+              value={extraHan}
+              description="Плюс к хан из яку. Если яку не выбраны, это весь хан."
+              decreaseLabel="Хан меньше"
+              increaseLabel="Хан больше"
+              testID="han"
+              onDecrease={() => setExtraHan((current) => changeExtraHan(current, -1))}
+              onIncrease={() => setExtraHan((current) => changeExtraHan(current, 1))}
             />
-            {driven ? (
-              <Hint>Список яку сейчас задаёт хан. Нажатие на хан вернёт ручной ввод.</Hint>
-            ) : han >= 13 ? (
+            {han >= 13 && yakuSum.yakuman === 0 ? (
               <Hint>13 и больше хан — кадзоэ-якуман, очки одного якмана.</Hint>
-            ) : han >= 5 ? (
+            ) : han >= 5 && yakuSum.yakuman === 0 ? (
               <Hint>С 5 хан число фу на очки не влияет.</Hint>
             ) : null}
           </Section>
 
           <Section title="Фу">
-            <ChoiceGrid
-              options={FU_VALUES}
+            <ValueCounter
               value={fu}
-              onChange={setFu}
-              labelOf={(value) => String(value)}
-              testIDOf={(value) => `fu-${value}`}
+              description="Только этот счётчик. 0 — очки не считаются, от 20 идёт обычная таблица."
+              decreaseLabel="Фу меньше"
+              increaseLabel="Фу больше"
+              testID="fu"
+              onDecrease={() => setFu((current) => changeFu(current, -1))}
+              onIncrease={() => setFu((current) => changeFu(current, 1))}
             />
             {fu === 20 && winBy === "ron" ? (
               <Hint>20 фу обычно только у закрытого пиньфу по цумо.</Hint>
@@ -233,42 +227,49 @@ function Hint({ children }: { children: string }) {
   return <Text style={styles.hint}>{children}</Text>;
 }
 
-function ChoiceGrid<T extends number>({
-  options,
+function ValueCounter({
   value,
-  onChange,
-  labelOf,
-  testIDOf,
+  description,
+  decreaseLabel,
+  increaseLabel,
+  testID,
+  onDecrease,
+  onIncrease,
 }: {
-  options: readonly T[];
-  value: T | null;
-  onChange: (value: T) => void;
-  labelOf: (value: T) => string;
-  testIDOf: (value: T) => string;
+  value: number;
+  description: string;
+  decreaseLabel: string;
+  increaseLabel: string;
+  testID: string;
+  onDecrease: () => void;
+  onIncrease: () => void;
 }) {
   return (
-    <View style={styles.grid}>
-      {options.map((option) => {
-        const selected = option === value;
-        const label = labelOf(option);
-        return (
-          <Pressable
-            key={option}
-            accessibilityRole="button"
-            accessibilityLabel={label}
-            accessibilityState={{ selected }}
-            testID={testIDOf(option)}
-            onPress={() => onChange(option)}
-            style={({ pressed }) => [
-              styles.chip,
-              selected && styles.chipSelected,
-              pressed && styles.chipPressed,
-            ]}
-          >
-            <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>
-          </Pressable>
-        );
-      })}
+    <View style={styles.counter}>
+      <Text style={styles.counterDescription}>{description}</Text>
+      <View style={styles.stepper}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={decreaseLabel}
+          testID={`${testID}-dec`}
+          onPress={onDecrease}
+          style={({ pressed }) => [styles.step, pressed && styles.chipPressed]}
+        >
+          <Text style={styles.stepText}>−</Text>
+        </Pressable>
+        <Text style={styles.count} testID={`${testID}-count`}>
+          {value}
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={increaseLabel}
+          testID={`${testID}-inc`}
+          onPress={onIncrease}
+          style={({ pressed }) => [styles.step, pressed && styles.chipPressed]}
+        >
+          <Text style={styles.stepText}>+</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -352,6 +353,12 @@ const styles = StyleSheet.create({
     lineHeight: 72,
     fontVariant: ["tabular-nums"],
   },
+  pointsEmpty: {
+    color: colors.muted,
+    fontSize: 64,
+    fontWeight: "800",
+    lineHeight: 72,
+  },
   badgeSlot: {
     minHeight: 32,
     justifyContent: "center",
@@ -407,10 +414,42 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
   },
-  grid: {
+  counter: {
+    gap: 10,
+  },
+  counterDescription: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  stepper: {
     flexDirection: "row",
-    flexWrap: "wrap",
+    alignItems: "center",
     gap: 8,
+  },
+  step: {
+    width: 64,
+    height: 64,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.chipEdge,
+    backgroundColor: colors.chip,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stepText: {
+    color: colors.text,
+    fontSize: 32,
+    fontWeight: "700",
+    lineHeight: 36,
+  },
+  count: {
+    minWidth: 64,
+    color: colors.text,
+    fontSize: 32,
+    fontWeight: "800",
+    textAlign: "center",
+    fontVariant: ["tabular-nums"],
   },
   chip: {
     flexGrow: 0,
