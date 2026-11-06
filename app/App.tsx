@@ -179,6 +179,24 @@ function Scorer() {
                 {lines[1] ?? ""}
               </Text>
             </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Сбросить яку"
+              accessibilityState={{ disabled: !yakuSum.active }}
+              testID="yaku-clear"
+              disabled={!yakuSum.active}
+              onPress={() => {
+                setSelected([]);
+                setCounters(ZERO_COUNTERS);
+              }}
+              style={({ pressed }) => [
+                styles.clear,
+                !yakuSum.active && styles.clearDisabled,
+                pressed && yakuSum.active && styles.chipPressed,
+              ]}
+            >
+              <Text style={styles.clearText}>Сбросить яку</Text>
+            </Pressable>
           </View>
         </View>
 
@@ -216,7 +234,7 @@ function Scorer() {
             />
           </Section>
 
-          <Section title="Кто выиграл">
+          <Section title="Игрок">
             <View style={styles.pair}>
               <BlockChoice
                 label="Не-дилер"
@@ -262,10 +280,6 @@ function Scorer() {
               counters={counters}
               onCounter={(id, value) => setCounters((current) => ({ ...current, [id]: value }))}
               sum={yakuSum}
-              onClear={() => {
-                setSelected([]);
-                setCounters(ZERO_COUNTERS);
-              }}
             />
           </Section>
 
@@ -447,8 +461,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.gold,
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 8,
+    paddingTop: 4,
+    paddingBottom: 4,
     alignItems: "center",
   },
   eyebrow: {
@@ -471,7 +485,7 @@ const styles = StyleSheet.create({
     lineHeight: 66,
   },
   lineSlot: {
-    height: 24,
+    height: 18,
     width: "100%",
     alignItems: "center",
     justifyContent: "center",
@@ -481,27 +495,27 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
     borderRadius: 999,
     paddingHorizontal: 12,
-    paddingVertical: 1,
+    paddingVertical: 0,
   },
   badgeText: {
     color: colors.ink,
     fontSize: 14,
     fontWeight: "800",
-    lineHeight: 20,
+    lineHeight: 16,
   },
   meta: {
     color: colors.text,
     fontSize: 18,
     fontWeight: "700",
-    lineHeight: 24,
+    lineHeight: 20,
   },
   who: {
     color: colors.muted,
     fontSize: 16,
-    lineHeight: 22,
+    lineHeight: 18,
   },
   detailSlot: {
-    height: 22,
+    height: 18,
     width: "100%",
     alignItems: "center",
     justifyContent: "center",
@@ -511,11 +525,11 @@ const styles = StyleSheet.create({
     color: colors.gold,
     fontSize: 16,
     fontWeight: "700",
-    lineHeight: 22,
+    lineHeight: 18,
     textAlign: "center",
   },
   paySlot: {
-    height: 44,
+    height: 40,
     width: "100%",
     alignItems: "center",
     justifyContent: "center",
@@ -525,8 +539,27 @@ const styles = StyleSheet.create({
     color: colors.pay,
     fontSize: 18,
     fontWeight: "600",
-    lineHeight: 22,
+    lineHeight: 20,
     textAlign: "center",
+  },
+  clear: {
+    alignSelf: "stretch",
+    height: 40,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.gold,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+  },
+  clearDisabled: {
+    opacity: 0.4,
+  },
+  clearText: {
+    color: colors.gold,
+    fontSize: 18,
+    fontWeight: "700",
+    lineHeight: 22,
   },
   scroll: {
     flex: 1,

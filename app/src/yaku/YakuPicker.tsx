@@ -27,7 +27,6 @@ export function YakuPicker({
   counters,
   onCounter,
   sum,
-  onClear,
 }: {
   closed: boolean;
   onClosedChange: (closed: boolean) => void;
@@ -36,7 +35,6 @@ export function YakuPicker({
   counters: HanCounters;
   onCounter: (id: keyof HanCounters, value: number) => void;
   sum: YakuSum;
-  onClear: () => void;
 }) {
   const selectedSet = new Set(selected);
 
@@ -63,17 +61,6 @@ export function YakuPicker({
             : `Из яку: ${sum.han}. Счётчик хан прибавляется сверху.`
           : "Отметьте яку. Их хан сложится отдельно от счётчика хан."}
       </Text>
-      {sum.active ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Сбросить яку"
-          testID="yaku-clear"
-          onPress={onClear}
-          style={({ pressed }) => [styles.clear, pressed && styles.pressed]}
-        >
-          <Text style={styles.clearText}>Сбросить яку</Text>
-        </Pressable>
-      ) : null}
 
       <Text style={styles.group}>Яку</Text>
       {ORDINARY_YAKU.map((yaku) => (
@@ -251,20 +238,6 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 14,
     lineHeight: 20,
-  },
-  clear: {
-    minHeight: 56,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.gold,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 16,
-  },
-  clearText: {
-    color: colors.gold,
-    fontSize: 18,
-    fontWeight: "700",
   },
   group: {
     color: colors.text,

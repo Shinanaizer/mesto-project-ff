@@ -78,7 +78,7 @@ export const YAKU = [
   {
     id: "tanyao",
     name: "Таняо",
-    description: "В руке нет терминалов и почётных плиток.",
+    description: "В руке нет терминалов и благородных плиток.",
     group: "yaku",
     closedOnly: false,
     closedHan: 1,
@@ -118,7 +118,7 @@ export const YAKU = [
   {
     id: "chanta",
     name: "Тянта",
-    description: "В каждом сете терминал или почётный, и есть обычная масть.",
+    description: "В каждом сете есть терминалы и благородные плитки, (в руке обязательно есть 1 или 9).",
     group: "yaku",
     closedOnly: false,
     closedHan: 2,
@@ -128,7 +128,7 @@ export const YAKU = [
   {
     id: "junchan",
     name: "Дзюнтян",
-    description: "В каждом сете терминал, почётных плиток нет.",
+    description: "В каждом сете есть терминал, благородных плиток нет.",
     group: "yaku",
     closedOnly: false,
     closedHan: 3,
@@ -138,7 +138,7 @@ export const YAKU = [
   {
     id: "toitoi",
     name: "Тойтой",
-    description: "Все сеты — коцу или кан.",
+    description: "Все сеты — пон или кан.",
     group: "yaku",
     closedOnly: false,
     closedHan: 2,
@@ -148,7 +148,7 @@ export const YAKU = [
   {
     id: "sanankou",
     name: "Сананко",
-    description: "Три закрытых коцу.",
+    description: "Три закрытых пона.",
     group: "yaku",
     closedOnly: false,
     closedHan: 2,
@@ -168,7 +168,7 @@ export const YAKU = [
   {
     id: "sanshokuDoukou",
     name: "Сансёку-доко",
-    description: "Один и тот же коцу в трёх мастях.",
+    description: "Один и тот же пон в трёх мастях.",
     group: "yaku",
     closedOnly: false,
     closedHan: 2,
@@ -189,7 +189,7 @@ export const YAKU = [
   {
     id: "honroutou",
     name: "Хонрото",
-    description: "Только терминалы и почётные, без плиток середины.",
+    description: "Только терминалы и благородные, без плиток середины.",
     group: "yaku",
     closedOnly: false,
     closedHan: 2,
@@ -199,7 +199,7 @@ export const YAKU = [
   {
     id: "shousangen",
     name: "Сёсангэн",
-    description: "Два дракона коцу, третий дракон в паре.",
+    description: "Два пона дракона, третий дракон в паре.",
     group: "yaku",
     closedOnly: false,
     closedHan: 2,
@@ -209,7 +209,7 @@ export const YAKU = [
   {
     id: "honitsu",
     name: "Хонъицу",
-    description: "Одна масть и почётные плитки.",
+    description: "Одна масть и благородные плитки.",
     group: "yaku",
     closedOnly: false,
     closedHan: 3,
@@ -229,7 +229,7 @@ export const YAKU = [
   {
     id: "chinitsu",
     name: "Чинъицу",
-    description: "Одна масть, без почётных плиток.",
+    description: "Одна масть, без благородных плиток.",
     group: "yaku",
     closedOnly: false,
     closedHan: 6,
@@ -239,7 +239,7 @@ export const YAKU = [
   {
     id: "kokushi",
     name: "Кокуси",
-    description: "Все 13 терминалов и почётных плюс пара любой из них.",
+    description: "Все 13 терминалов и благородые плюс пара любой из них.",
     group: "yakuman",
     closedOnly: true,
     closedHan: 0,
@@ -249,7 +249,7 @@ export const YAKU = [
   {
     id: "suuankou",
     name: "Суанко",
-    description: "Четыре закрытых коцу.",
+    description: "Четыре закрытых пона.",
     group: "yakuman",
     closedOnly: true,
     closedHan: 0,
@@ -259,7 +259,7 @@ export const YAKU = [
   {
     id: "daisangen",
     name: "Дайсангэн",
-    description: "Коцу всех трёх драконов.",
+    description: "Поны всех трёх драконов.",
     group: "yakuman",
     closedOnly: false,
     closedHan: 0,
@@ -269,7 +269,7 @@ export const YAKU = [
   {
     id: "shousuushii",
     name: "Сёсусии",
-    description: "Три ветра коцу, четвёртый ветер в паре.",
+    description: "Три пона ветра, четвёртый ветер в паре.",
     group: "yakuman",
     closedOnly: false,
     closedHan: 0,
@@ -279,7 +279,7 @@ export const YAKU = [
   {
     id: "daisuushii",
     name: "Дайсусии",
-    description: "Коцу всех четырёх ветров.",
+    description: "Поны всех четырёх ветров.",
     group: "yakuman",
     closedOnly: false,
     closedHan: 0,
@@ -289,7 +289,7 @@ export const YAKU = [
   {
     id: "tsuuiisou",
     name: "Цуйсо",
-    description: "Только почётные плитки.",
+    description: "Только благородные плитки.",
     group: "yakuman",
     closedOnly: false,
     closedHan: 0,
@@ -299,7 +299,7 @@ export const YAKU = [
   {
     id: "chinroutou",
     name: "Чинрото",
-    description: "Только терминалы, без почётных.",
+    description: "Только терминалы, без благородных.",
     group: "yakuman",
     closedOnly: false,
     closedHan: 0,
@@ -369,7 +369,7 @@ export const YAKU = [
   {
     id: "suuankouTanki",
     name: "Суанко танки",
-    description: "Четыре закрытых коцу и ожидание именно в паре.",
+    description: "Четыре закрытых пона и ожидание именно в паре.",
     group: "yakuman",
     closedOnly: true,
     closedHan: 0,
@@ -428,7 +428,7 @@ export const COUNTERS = [
   {
     id: "yakuhai",
     name: "Якухай",
-    description: "Коцу дракона, ветра раунда или ветра места. Каждый даёт хан.",
+    description: "Поны дракона, ветра раунда или ветра места. Каждый даёт хан.",
   },
   {
     id: "dora",

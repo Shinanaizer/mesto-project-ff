@@ -27,7 +27,7 @@ const ROWS: { title: string; ids: number[] }[] = [
   { title: "Ман", ids: [0, 1, 2, 3, 4, 5, 6, 7, 8] },
   { title: "Пин", ids: [9, 10, 11, 12, 13, 14, 15, 16, 17] },
   { title: "Соу", ids: [18, 19, 20, 21, 22, 23, 24, 25, 26] },
-  { title: "Почёты", ids: [27, 28, 29, 30, 31, 32, 33] },
+  { title: "Благородные", ids: [27, 28, 29, 30, 31, 32, 33] },
 ];
 
 export function HandBuilder() {
@@ -72,63 +72,92 @@ export function HandBuilder() {
   const badge = reading.score ? limitLabel(reading.score) : null;
 
   return (
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <View style={styles.result} testID="hand-result">
-        <Text style={styles.eyebrow}>Рука</Text>
-        <Text style={reading.score ? styles.points : styles.pointsEmpty} testID="hand-points">
-          {points}
-        </Text>
-        <Text style={styles.meta} testID="hand-summary">
-          {reading.status === "ready"
-            ? `${reading.fu == null ? "якуман" : `${reading.fu} фу`} · ${
-                reading.yakuman > 0 ? "якуман" : reading.han < 1 ? "нет хан" : `${formatHan(reading.han)} хан`
-              }`
-            : "фу и хан появятся из плиток"}
-        </Text>
-        {badge ? <Text style={styles.badge}>{badge}</Text> : null}
-        <Text style={styles.who}>
-          {winnerLabel(winner)} · {WIND_NAME[seat]} · раунд {WIND_NAME[round]} · {winByLabel(winBy)}
-        </Text>
-        {reading.score
-          ? paymentLines(reading.score).map((line) => (
-              <Text key={line} style={styles.pay}>
-                {line}
-              </Text>
-            ))
-          : null}
-        {reading.yaku.length > 0 ? (
-          <Text style={styles.yaku} testID="hand-yaku">
-            {reading.yaku.map((yaku) => (yaku.han > 0 ? `${yaku.name} ${yaku.han}` : yaku.name)).join(" · ")}
+    <View style={styles.screen}>
+      <View style={styles.top}>
+        <View style={styles.result} testID="hand-result">
+          <Text style={styles.eyebrow}>Рука</Text>
+          <Text style={reading.score ? styles.points : styles.pointsEmpty} testID="hand-points">
+            {points}
           </Text>
-        ) : null}
-        {reading.waitNote ? <Text style={styles.note}>{reading.waitNote}</Text> : null}
-        {reading.status === "invalid" ? <Text style={styles.note}>Эти 14 плиток не складываются в руку.</Text> : null}
+          <Text style={styles.meta} numberOfLines={1} testID="hand-summary">
+            {reading.status === "ready"
+              ? `${reading.fu == null ? "якуман" : `${reading.fu} фу`} · ${
+                  reading.yakuman > 0 ? "якуман" : reading.han < 1 ? "нет хан" : `${formatHan(reading.han)} хан`
+                }`
+              : "фу и хан появятся из плиток"}
+          </Text>
+          <View style={styles.lineSlot}>
+            {badge ? <Text style={styles.badge}>{badge}</Text> : null}
+          </View>
+          <Text style={styles.who} numberOfLines={1}>
+            {winnerLabel(winner)} · {WIND_NAME[seat]} · раунд {WIND_NAME[round]} · {winByLabel(winBy)}
+          </Text>
+          <View style={styles.paySlot}>
+            {reading.score
+              ? paymentLines(reading.score).map((line) => (
+                  <Text key={line} style={styles.pay} numberOfLines={1}>
+                    {line}
+                  </Text>
+                ))
+              : null}
+          </View>
+          <View style={styles.yakuSlot}>
+            {reading.yaku.length > 0 ? (
+              <Text style={styles.yaku} numberOfLines={2} testID="hand-yaku">
+                {reading.yaku.map((yaku) => (yaku.han > 0 ? `${yaku.name} ${yaku.han}` : yaku.name)).join(" · ")}
+              </Text>
+            ) : null}
+          </View>
+          <View style={styles.noteSlot}>
+            {reading.waitNote ? (
+              <Text style={styles.note} numberOfLines={1}>
+                {reading.waitNote}
+              </Text>
+            ) : null}
+            {reading.status === "invalid" ? (
+              <Text style={styles.note} numberOfLines={1}>
+                Эти 14 плиток не складываются в руку.
+              </Text>
+            ) : null}
+          </View>
+          <View style={styles.handFrame}>
+            <View style={styles.handRatio} />
+            <View style={styles.handSlot}>
+              {tiles.length === 0 ? (
+                <View style={styles.handEmpty} pointerEvents="none">
+                  <Text style={styles.hint}>Рука пустая. Наберите 14 плиток.</Text>
+                </View>
+              ) : null}
+              {tiles.map((id, index) => (
+                <Pressable
+                  key={`${id}-${index}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Убрать ${tileLabel(id)}`}
+                  hitSlop={4}
+                  onPress={() => removeTile(index)}
+                  style={styles.handTile}
+                  testID={`hand-tile-${index}`}
+                >
+                  <TileFace id={id} marked={id === winTile} />
+                </Pressable>
+              ))}
+            </View>
+          </View>
+          <Text style={styles.count} testID="hand-count">
+            Плиток: {tiles.length} из 14
+          </Text>
+        </View>
       </View>
 
-      <View style={styles.handRow}>
-        {tiles.length === 0 ? <Text style={styles.hint}>Рука пустая. Наберите 14 плиток.</Text> : null}
-        {tiles.map((id, index) => (
-          <Pressable
-            key={`${id}-${index}`}
-            accessibilityRole="button"
-            accessibilityLabel={`Убрать ${tileLabel(id)}`}
-            onPress={() => removeTile(index)}
-            style={styles.handTile}
-            testID={`hand-tile-${index}`}
-          >
-            <TileFace id={id} marked={id === winTile} />
-          </Pressable>
-        ))}
-      </View>
-      <Text style={styles.count} testID="hand-count">
-        Плиток: {tiles.length} из 14
-      </Text>
-
-      {reading.winningTiles.length > 0 ? (
-        <View>
-          <Text style={styles.section}>Победная плитка</Text>
-          <Text style={styles.hint}>Нужна для пинфу: засчитается, если ожидание явно с двух сторон.</Text>
-          <View style={styles.winRow}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <View>
+        <Text style={styles.section}>Победная плитка</Text>
+        <Text style={styles.hint}>Нужна для пинфу: засчитается, если ожидание явно с двух сторон.</Text>
+        <View style={styles.winRow}>
+          <View pointerEvents="none" style={styles.winTile}>
+            <View style={styles.winFace} />
+          </View>
+          <View style={styles.winTiles}>
             {reading.winningTiles.map((id) => (
               <Pressable
                 key={id}
@@ -143,9 +172,9 @@ export function HandBuilder() {
             ))}
           </View>
         </View>
-      ) : null}
+      </View>
 
-      <Text style={styles.section}>Кто сидит</Text>
+      <Text style={styles.section}>Игрок</Text>
       <View style={styles.pair}>
         <Choice label="Не-дилер" selected={!dealer} onPress={() => setDealer(false)} testID="hand-non-dealer" />
         <Choice label="Дилер" selected={dealer} onPress={() => setDealer(true)} testID="hand-dealer" />
@@ -245,7 +274,8 @@ export function HandBuilder() {
           </View>
         </View>
       ))}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -274,6 +304,17 @@ function Choice({
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+  },
+  top: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  scroll: {
+    flex: 1,
+  },
   content: {
     paddingHorizontal: 16,
     paddingBottom: 28,
@@ -309,7 +350,15 @@ const styles = StyleSheet.create({
   meta: {
     color: colors.text,
     fontSize: 18,
+    lineHeight: 22,
     fontWeight: "700",
+  },
+  lineSlot: {
+    height: 22,
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
   },
   badge: {
     color: colors.ink,
@@ -318,37 +367,86 @@ const styles = StyleSheet.create({
     borderRadius: 99,
     paddingHorizontal: 10,
     fontWeight: "800",
+    fontSize: 14,
+    lineHeight: 18,
   },
   who: {
     color: colors.muted,
     fontSize: 15,
+    lineHeight: 18,
     textAlign: "center",
+  },
+  paySlot: {
+    height: 36,
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
   },
   pay: {
     color: colors.pay,
     fontSize: 16,
+    lineHeight: 18,
     fontWeight: "600",
+  },
+  yakuSlot: {
+    height: 36,
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
   },
   yaku: {
     color: colors.gold,
-    fontSize: 16,
+    fontSize: 15,
+    lineHeight: 18,
     fontWeight: "700",
     textAlign: "center",
+  },
+  noteSlot: {
+    height: 18,
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
   },
   note: {
     color: colors.pay,
     fontSize: 14,
+    lineHeight: 18,
     textAlign: "center",
   },
-  handRow: {
+  handFrame: {
+    width: "100%",
+  },
+  handRatio: {
+    width: "100%",
+    aspectRatio: 2.5 / 0.7,
+  },
+  handSlot: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 6,
-    minHeight: 72,
+    alignContent: "flex-start",
+    overflow: "hidden",
+  },
+  handEmpty: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     alignItems: "center",
+    justifyContent: "center",
   },
   handTile: {
-    width: 48,
+    width: "9.996%",
+    paddingHorizontal: 1,
+    paddingVertical: 1,
   },
   hint: {
     color: colors.muted,
@@ -473,11 +571,24 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   winRow: {
+    gap: 0,
+    overflow: "hidden",
+  },
+  winTiles: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 6,
+    gap: 0,
+  },
+  winFace: {
+    width: "100%",
+    aspectRatio: 0.74,
   },
   winTile: {
-    width: 48,
+    width: "11.11%",
+    padding: 2,
   },
 });
