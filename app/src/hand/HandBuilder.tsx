@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { isDealerSeat } from "./dealerSeat";
 import { evaluateHand } from "../hand/evaluate";
 import { formatHan, formatPoints, limitLabel, paymentLines, winByLabel, winnerLabel, type WinBy, type Winner } from "../scoring/score";
 import { TileFace } from "../tiles/TileFace";
@@ -35,12 +36,11 @@ export function HandBuilder() {
   const [winTile, setWinTile] = useState<number | null>(null);
   const [seat, setSeat] = useState<Wind>("east");
   const [round, setRound] = useState<Wind>("east");
-  const [dealer, setDealer] = useState(true);
   const [winBy, setWinBy] = useState<WinBy>("ron");
   const [dora, setDora] = useState(0);
 
   const counts = useMemo(() => countsFromTiles(tiles), [tiles]);
-  const winner: Winner = dealer ? "dealer" : "nonDealer";
+  const winner: Winner = isDealerSeat(seat) ? "dealer" : "nonDealer";
   const reading = useMemo(
     () =>
       evaluateHand({
@@ -174,11 +174,6 @@ export function HandBuilder() {
         </View>
       </View>
 
-      <Text style={styles.section}>Игрок</Text>
-      <View style={styles.pair}>
-        <Choice label="Не-дилер" selected={!dealer} onPress={() => setDealer(false)} testID="hand-non-dealer" />
-        <Choice label="Дилер" selected={dealer} onPress={() => setDealer(true)} testID="hand-dealer" />
-      </View>
       <Text style={styles.field}>Ветер места</Text>
       <View style={styles.winds}>
         {WINDS.map((wind) => (
