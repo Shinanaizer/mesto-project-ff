@@ -1,6 +1,16 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { changeExtraHan, changeFu, decideFu, DEFAULT_FU, scoreParts, totalHan } from "./combine";
+import {
+  ZERO_KANS,
+  changeExtraHan,
+  changeFu,
+  changeKan,
+  decideFu,
+  DEFAULT_FU,
+  fuWithKans,
+  scoreParts,
+  totalHan,
+} from "./combine";
 import { ZERO_COUNTERS } from "../yaku/catalog";
 import { impliedFuValues, sumYaku } from "../yaku/sum";
 
@@ -174,5 +184,26 @@ describe("counter steps", () => {
     assert.equal(changeExtraHan(0, 1), 1);
     assert.equal(changeExtraHan(0, -1), 0);
     assert.equal(changeExtraHan(13, 1), 13);
+  });
+});
+
+describe("kans add fu on top of the counter", () => {
+  it("turns 30 fu and one closed honor kan into 70", () => {
+    const kans = { ...ZERO_KANS, closedHonor: 1 };
+    assert.equal(fuWithKans(30, kans), 70);
+    const score = scoreParts({ ...base, yakuHan: 1, extraHan: 0, fu: 30, kans });
+    assert.equal(score?.fu, 70);
+    assert.equal(score?.total, 2300);
+  });
+
+  it("leaves the fu counter alone when there is no kan", () => {
+    assert.equal(fuWithKans(30, ZERO_KANS), 30);
+    assert.equal(scoreParts({ ...base, yakuHan: 1, extraHan: 0, fu: 30, kans: ZERO_KANS })?.fu, 30);
+  });
+
+  it("stops at four kans", () => {
+    const full = { ...ZERO_KANS, openSimple: 4 };
+    assert.equal(changeKan(full, "closedHonor", 1), full);
+    assert.equal(changeKan(ZERO_KANS, "openSimple", -1), ZERO_KANS);
   });
 });

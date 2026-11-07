@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { isDealerSeat } from "./dealerSeat";
+import { BonusFields } from "../game/BonusFields";
+import { awardView, type SettleInput } from "../game/table";
 import { evaluateHand } from "../hand/evaluate";
-import { formatHan, formatPoints, limitLabel, paymentLines, winByLabel, winnerLabel, type WinBy, type Winner } from "../scoring/score";
+import { formatHan, formatPoints, limitLabel, winByLabel, winnerLabel, type WinBy, type Winner } from "../scoring/score";
 import { TileFace } from "../tiles/TileFace";
 import {
   countsFromTiles,
@@ -31,16 +33,29 @@ const ROWS: { title: string; ids: number[] }[] = [
   { title: "Благородные", ids: [27, 28, 29, 30, 31, 32, 33] },
 ];
 
-export function HandBuilder() {
+export function HandBuilder({
+  canSave,
+  onSave,
+}: {
+  canSave: boolean;
+  onSave: (input: SettleInput) => void;
+}) {
   const [tiles, setTiles] = useState<number[]>([]);
   const [winTile, setWinTile] = useState<number | null>(null);
   const [seat, setSeat] = useState<Wind>("east");
   const [round, setRound] = useState<Wind>("east");
   const [winBy, setWinBy] = useState<WinBy>("ron");
+  const [closed, setClosed] = useState(true);
   const [dora, setDora] = useState(0);
+  const [sticks, setSticks] = useState(0);
+  const [honba, setHonba] = useState(0);
+  const [saved, setSaved] = useState(false);
+  const [kans, setKans] = useState<number[]>([]);
+  const [pendingKan, setPendingKan] = useState<number | null>(null);
 
   const counts = useMemo(() => countsFromTiles(tiles), [tiles]);
   const winner: Winner = isDealerSeat(seat) ? "dealer" : "nonDealer";
+  const tileLimit = 14 + kans.length;
   const reading = useMemo(
     () =>
       evaluateHand({
@@ -51,13 +66,32 @@ export function HandBuilder() {
         winBy,
         dora,
         winTile,
+        closed,
+        kans,
       }),
-    [counts, seat, round, winner, winBy, dora, winTile],
+    [counts, seat, round, winner, winBy, dora, winTile, closed, kans],
   );
 
   function addTile(id: number) {
-    if (tiles.length >= 14 || counts[id] >= 4) return;
+    if (pendingKan != null || tiles.length >= tileLimit || counts[id] >= 4) return;
+    if (counts[id] === 3) {
+      setPendingKan(id);
+      return;
+    }
     setTiles((current) => [...current, id].sort((left, right) => left - right));
+  }
+
+  function answerKan(yes: boolean) {
+    if (pendingKan == null) return;
+    const id = pendingKan;
+    if (counts[id] < 3) {
+      setPendingKan(null);
+      return;
+    }
+    setTiles((current) => [...current, id].sort((left, right) => left - right));
+    if (yes) setKans((current) => (current.includes(id) ? current : [...current, id]));
+    setPendingKan(null);
+    setSaved(false);
   }
 
   function removeTile(index: number) {
@@ -65,11 +99,28 @@ export function HandBuilder() {
     const next = tiles.slice();
     next.splice(index, 1);
     setTiles(next);
+    if (next.filter((id) => id === removed).length < 4) {
+      setKans((current) => current.filter((id) => id !== removed));
+    }
     if (removed === winTile && !next.includes(removed)) setWinTile(null);
   }
 
-  const points = reading.score ? formatPoints(reading.score.total) : "—";
+  const award = reading.score ? awardView(reading.score, sticks, honba) : null;
+  const points = award ? formatPoints(award.total) : "—";
   const badge = reading.score ? limitLabel(reading.score) : null;
+
+  function chooseSeat(next: Wind) {
+    setSeat(next);
+    setSaved(false);
+  }
+
+  function saveHand() {
+    if (!reading.score || !canSave) return;
+    onSave({ winBy, hand: reading.score, sticks, honba });
+    setSticks(0);
+    setHonba(0);
+    setSaved(true);
+  }
 
   return (
     <View style={styles.screen}>
@@ -93,9 +144,9 @@ export function HandBuilder() {
             {winnerLabel(winner)} · {WIND_NAME[seat]} · раунд {WIND_NAME[round]} · {winByLabel(winBy)}
           </Text>
           <View style={styles.paySlot}>
-            {reading.score
-              ? paymentLines(reading.score).map((line) => (
-                  <Text key={line} style={styles.pay} numberOfLines={1}>
+            {award
+              ? award.lines.map((line, index) => (
+                  <Text key={`${index}-${line}`} style={styles.pay} numberOfLines={1}>
                     {line}
                   </Text>
                 ))
@@ -116,7 +167,7 @@ export function HandBuilder() {
             ) : null}
             {reading.status === "invalid" ? (
               <Text style={styles.note} numberOfLines={1}>
-                Эти 14 плиток не складываются в руку.
+                Эти {tiles.length} плиток не складываются в руку.
               </Text>
             ) : null}
           </View>
@@ -144,12 +195,47 @@ export function HandBuilder() {
             </View>
           </View>
           <Text style={styles.count} testID="hand-count">
-            Плиток: {tiles.length} из 14
+            Плиток: {tiles.length} из {tileLimit}
           </Text>
+          {kans.length > 0 ? (
+            <Text style={styles.hint} testID="hand-kans">
+              {kans.map((id) => tileLabel(id)).join(", ")} — кан.{" "}
+              {closed ? "Рука закрытая, фу закрытого кана." : "Рука открытая, фу открытого кана."}
+            </Text>
+          ) : null}
         </View>
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      {pendingKan != null ? (
+        <View style={styles.kanAsk} testID="kan-prompt">
+          <Text style={styles.section}>Четыре {tileLabel(pendingKan)}. Это кан?</Text>
+          <Text style={styles.hint}>
+            Да — плитка фиксируется, в руке становится место ещё для одной, фу кана идут в счёт. Нет — плитка
+            остаётся обычной.
+          </Text>
+          <View style={styles.kanAnswers}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Это кан"
+              onPress={() => answerKan(true)}
+              style={styles.choice}
+              testID="kan-yes"
+            >
+              <Text style={styles.choiceText}>Да, кан</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Это не кан"
+              onPress={() => answerKan(false)}
+              style={styles.choice}
+              testID="kan-no"
+            >
+              <Text style={styles.choiceText}>Нет</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
       <View>
         <Text style={styles.section}>Победная плитка</Text>
         <Text style={styles.hint}>Нужна для пинфу: засчитается, если ожидание явно с двух сторон.</Text>
@@ -181,7 +267,7 @@ export function HandBuilder() {
             key={wind}
             label={WIND_NAME[wind]}
             selected={seat === wind}
-            onPress={() => setSeat(wind)}
+            onPress={() => chooseSeat(wind)}
             testID={`seat-${wind}`}
           />
         ))}
@@ -198,10 +284,54 @@ export function HandBuilder() {
           />
         ))}
       </View>
+      <Text style={styles.field}>Рука</Text>
       <View style={styles.pair}>
-        <Choice label="Рон" selected={winBy === "ron"} onPress={() => setWinBy("ron")} testID="hand-ron" />
-        <Choice label="Цумо" selected={winBy === "tsumo"} onPress={() => setWinBy("tsumo")} testID="hand-tsumo" />
+        <Choice
+          label="Закрытая"
+          selected={closed}
+          onPress={() => setClosed(true)}
+          testID="builder-closed"
+        />
+        <Choice
+          label="Открытая"
+          selected={!closed}
+          onPress={() => setClosed(false)}
+          testID="builder-open"
+        />
       </View>
+      <View style={styles.pair}>
+        <Choice
+          label="Рон"
+          selected={winBy === "ron"}
+          onPress={() => {
+            setWinBy("ron");
+            setSaved(false);
+          }}
+          testID="hand-ron"
+        />
+        <Choice
+          label="Цумо"
+          selected={winBy === "tsumo"}
+          onPress={() => {
+            setWinBy("tsumo");
+            setSaved(false);
+          }}
+          testID="hand-tsumo"
+        />
+      </View>
+      <BonusFields
+        sticks={sticks}
+        honba={honba}
+        onSticks={(value) => {
+          setSticks(value);
+          setSaved(false);
+        }}
+        onHonba={(value) => {
+          setHonba(value);
+          setSaved(false);
+        }}
+        idPrefix="hand"
+      />
 
       <View style={styles.doraRow}>
         <View style={styles.doraText}>
@@ -235,22 +365,40 @@ export function HandBuilder() {
 
       <Pressable
         accessibilityRole="button"
+        accessibilityLabel="Записать в партию"
+        accessibilityState={{ disabled: !reading.score || !canSave }}
+        disabled={!reading.score || !canSave}
+        onPress={saveHand}
+        style={[styles.save, (!reading.score || !canSave) && styles.saveOff]}
+        testID="hand-save"
+      >
+        <Text style={styles.saveText}>В партию</Text>
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
         onPress={() => {
           setTiles([]);
           setWinTile(null);
+          setKans([]);
+          setPendingKan(null);
         }}
         style={styles.clear}
         testID="hand-clear"
       >
         <Text style={styles.clearText}>Очистить руку</Text>
       </Pressable>
+      {saved ? (
+        <Text style={styles.hint} testID="hand-saved">
+          Записано в партию
+        </Text>
+      ) : null}
 
       {ROWS.map((row) => (
         <View key={row.title}>
           <Text style={styles.section}>{row.title}</Text>
           <View style={styles.palette}>
             {row.ids.map((id) => {
-              const full = counts[id] >= 4 || tiles.length >= 14;
+              const full = pendingKan != null || counts[id] >= 4 || tiles.length >= tileLimit;
               return (
                 <Pressable
                   key={id}
@@ -372,11 +520,10 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   paySlot: {
-    height: 36,
+    minHeight: 36,
     width: "100%",
     alignItems: "center",
     justifyContent: "center",
-    overflow: "hidden",
   },
   pay: {
     color: colors.pay,
@@ -450,6 +597,13 @@ const styles = StyleSheet.create({
   count: {
     color: colors.muted,
     fontSize: 14,
+  },
+  kanAsk: {
+    gap: 8,
+  },
+  kanAnswers: {
+    flexDirection: "row",
+    gap: 8,
   },
   section: {
     color: colors.text,
@@ -528,6 +682,21 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     minWidth: 28,
     textAlign: "center",
+  },
+  save: {
+    minHeight: 48,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.gold,
+  },
+  saveOff: {
+    opacity: 0.4,
+  },
+  saveText: {
+    color: colors.ink,
+    fontWeight: "800",
+    fontSize: 18,
   },
   clear: {
     minHeight: 48,

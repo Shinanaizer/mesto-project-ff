@@ -33,14 +33,14 @@ describe("dealer follows the seat wind", () => {
     const south = scoreSeat("south", "east");
     const southRound = scoreSeat("south", "south");
 
-    assert.equal(east.fu, 30);
+    assert.equal(east.fu, 20);
     assert.equal(east.han, 2);
-    assert.equal(south.fu, 30);
+    assert.equal(south.fu, 20);
     assert.equal(south.han, 2);
-    assert.equal(east.score?.total, 2900);
-    assert.equal(south.score?.total, 2000);
-    assert.equal(southRound.score?.total, 2000);
-    assert.equal(scoreSeat("west").score?.total, 2000);
-    assert.equal(scoreSeat("north").score?.total, 2000);
+    assert.equal(east.score?.total, 2000);
+    assert.equal(south.score?.total, 1300);
+    assert.equal(southRound.score?.total, 1300);
+    assert.equal(scoreSeat("west").score?.total, 1300);
+    assert.equal(scoreSeat("north").score?.total, 1300);
   });
 });

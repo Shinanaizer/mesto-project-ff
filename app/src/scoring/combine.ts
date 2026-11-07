@@ -20,6 +20,51 @@ export function changeExtraHan(current: number, delta: -1 | 1): number {
   return Math.min(EXTRA_HAN_MAX, Math.max(0, current + delta));
 }
 
+/** Fu of one kan. Open is 8 or 16, closed is 16 or 32. */
+export interface KanCounts {
+  openSimple: number;
+  openHonor: number;
+  closedSimple: number;
+  closedHonor: number;
+}
+
+export const ZERO_KANS: KanCounts = {
+  openSimple: 0,
+  openHonor: 0,
+  closedSimple: 0,
+  closedHonor: 0,
+};
+
+const KAN_FU: Record<keyof KanCounts, number> = {
+  openSimple: 8,
+  openHonor: 16,
+  closedSimple: 16,
+  closedHonor: 32,
+};
+
+export function changeKan(current: KanCounts, key: keyof KanCounts, delta: -1 | 1): KanCounts {
+  const nextValue = current[key] + delta;
+  if (!Number.isSafeInteger(nextValue) || nextValue < 0) return current;
+  const next = { ...current, [key]: nextValue };
+  const total = next.openSimple + next.openHonor + next.closedSimple + next.closedHonor;
+  if (total > 4) return current;
+  return next;
+}
+
+export function kanFu(kans: KanCounts): number {
+  return (Object.keys(KAN_FU) as (keyof KanCounts)[]).reduce((sum, key) => sum + kans[key] * KAN_FU[key], 0);
+}
+
+/** Adds kan fu to a base that does not already include them, then rounds up to 10. */
+export function fuWithKans(base: number, kans: KanCounts): number {
+  const extra = kanFu(kans);
+  if (extra === 0) return base;
+  if (!Number.isSafeInteger(base) || base < 20) {
+    throw new RangeError("Фу для кана должны быть от 20");
+  }
+  return Math.ceil((base + extra) / 10) * 10;
+}
+
 export function totalHan(yakuHan: number, extraHan: number): number {
   if (!Number.isSafeInteger(yakuHan) || yakuHan < 0) {
     throw new RangeError("Хан из яку должен быть целым от 0");
@@ -41,6 +86,8 @@ export interface HandParts {
   yakuman: number;
   winner: Winner;
   winBy: WinBy;
+  /** Kans are not part of the fu counter. Their fu is added and rounded up to 10. */
+  kans?: KanCounts;
 }
 
 export type FuDecision =
@@ -93,9 +140,10 @@ export function scoreParts(parts: HandParts): Score | null {
   const han = totalHan(parts.yakuHan, parts.extraHan);
   if (han < 1) return null;
   if (decision.status !== "explicit" && decision.status !== "implied") return null;
+  const kans = parts.kans ?? ZERO_KANS;
   return scoreHand({
     han,
-    fu: decision.fu,
+    fu: fuWithKans(decision.fu, kans),
     winner: parts.winner,
     winBy: parts.winBy,
   });

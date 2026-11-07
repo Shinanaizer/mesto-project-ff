@@ -1,4 +1,5 @@
 import { scoreHand, type Score, type WinBy, type Winner } from "../scoring/score";
+import { YAKU_BY_ID, type YakuId } from "../yaku/catalog";
 import {
   CHUN,
   EAST,
@@ -32,6 +33,14 @@ export interface HandQuery {
   dora: number;
   /** When set, fu and pinfu use only this winning tile. */
   winTile: number | null;
+  /**
+   * Menzen when omitted or true. Open drops closed-only yaku and uses
+   * the open han. There is no meld editor, so triplet fu stays closed.
+   * A confirmed kan uses the same switch: closed hand means a closed kan.
+   */
+  closed?: boolean;
+  /** Tile ids the player confirmed as kans. Each must occur four times. */
+  kans?: readonly number[];
 }
 
 export interface FoundYaku {
@@ -76,6 +85,8 @@ const KOKUSHI = [0, 8, 9, 17, 18, 26, EAST, SOUTH, WEST, NORTH, HAKU, HATSU, CHU
 export function evaluateHand(query: HandQuery): HandReading {
   const counts = query.counts.slice();
   const total = tileTotal(counts);
+  const kanTiles = confirmedKans(counts, query.kans);
+  const kanCount = kanTiles.length;
   const blank: HandReading = {
     status: total === 0 ? "empty" : "incomplete",
     yaku: [],
@@ -87,32 +98,40 @@ export function evaluateHand(query: HandQuery): HandReading {
     winningTiles: [],
     pinfuBlocked: false,
   };
-  if (total !== 14) return blank;
+  if (total !== 14 + kanCount) return blank;
 
-  const byTile = waitsByTile(counts);
+  const rest = counts.slice();
+  for (const tile of kanTiles) rest[tile] -= 4;
+  const meldCount = 4 - kanCount;
+  const byTile = waitsByTile(rest, meldCount);
   const winningTiles = [...byTile.keys()];
   const waits = query.winTile == null ? uniqueKinds(byTile) : (byTile.get(query.winTile) ?? []);
-  const formed = standardHands(counts);
-  const seven = isChiitoitsu(counts);
+  const formed = standardHands(rest, meldCount);
+  const seven = kanCount === 0 && isChiitoitsu(counts);
   const options: HandReading[] = [];
 
-  if (isKokushi(counts)) options.push(namedLimit(query, "Кокуси", 1));
-  if (formed.length > 0 && isChuuren(counts)) options.push(namedLimit(query, "Чуурэн", 1));
-  if (formed.length > 0 && isDaisuushii(counts)) options.push(namedLimit(query, "Дайсусии", 2));
-  else if (formed.length > 0 && isShousuushii(counts)) options.push(namedLimit(query, "Сёсусии", 1));
-  if (formed.length > 0 && isDaisangen(counts)) options.push(namedLimit(query, "Дайсангэн", 1));
-  if (formed.length > 0 && isTsuuiisou(counts)) options.push(namedLimit(query, "Цуйсо", 1));
-  if (formed.length > 0 && isChinroutou(counts)) options.push(namedLimit(query, "Чинрото", 1));
-  if ((formed.length > 0 || seven) && isRyuuiisou(counts)) options.push(namedLimit(query, "Рюисо", 1));
+  if (kanCount === 0 && isKokushi(counts)) pushLimit(options, query, "kokushi", 1);
+  if (kanCount === 0 && formed.length > 0 && isChuuren(counts)) pushLimit(options, query, "chuuren", 1);
+  if (formed.length > 0 && isDaisuushii(counts)) pushLimit(options, query, "daisuushii", 2);
+  else if (formed.length > 0 && isShousuushii(counts)) pushLimit(options, query, "shousuushii", 1);
+  if (formed.length > 0 && isDaisangen(counts)) pushLimit(options, query, "daisangen", 1);
+  if (formed.length > 0 && isTsuuiisou(counts)) pushLimit(options, query, "tsuuiisou", 1);
+  if (formed.length > 0 && isChinroutou(counts)) pushLimit(options, query, "chinroutou", 1);
+  if ((formed.length > 0 || seven) && isRyuuiisou(counts)) pushLimit(options, query, "ryuuiisou", 1);
+  if (kanCount === 4 && formed.length > 0) pushLimit(options, query, "suukantsu", 1);
 
   let bestBlocked = false;
   for (const hand of formed) {
-    const found = yakuFromStandard(hand, counts, query, waits);
+    const found = yakuFromStandard(hand, counts, query, waits, kanTiles);
     const reading = finish(query, found.items, found.yakuman, found.fu);
     options.push(reading);
     if (found.pinfuBlocked) bestBlocked = true;
   }
-  if (seven) options.push(finish(query, yakuFromPairs(counts, query), 0, 25));
+  if (seven) {
+    // Closed chiitoitsu is 25 fu, same as the counter. Open is not chiitoitsu.
+    const fu = handIsClosed(query) ? fixedFuOf("chiitoitsu") : 30;
+    options.push(finish(query, yakuFromPairs(counts, query), 0, fu));
+  }
 
   if (options.length === 0) {
     return { ...blank, status: "invalid", winningTiles };
@@ -131,11 +150,24 @@ export function evaluateHand(query: HandQuery): HandReading {
   };
 }
 
-function waitsByTile(counts: readonly number[]): Map<number, WaitKind[]> {
+function confirmedKans(counts: readonly number[], kans: readonly number[] | undefined): number[] {
+  if (kans == null) return [];
+  const seen = new Set<number>();
+  const confirmed: number[] = [];
+  for (const tile of kans) {
+    if (!Number.isInteger(tile) || tile < 0 || tile > 33 || seen.has(tile)) continue;
+    if (counts[tile] < 4) continue;
+    seen.add(tile);
+    confirmed.push(tile);
+  }
+  return confirmed;
+}
+
+function waitsByTile(counts: readonly number[], melds = 4): Map<number, WaitKind[]> {
   const found = new Map<number, WaitKind[]>();
   for (let tile = 0; tile < 34; tile += 1) {
     if (counts[tile] === 0) continue;
-    const kinds = tenpaiKinds(without(counts, tile), tile);
+    const kinds = tenpaiKinds(without(counts, tile), tile, melds);
     if (kinds.length > 0) found.set(tile, kinds);
   }
   return found;
@@ -153,8 +185,30 @@ function pointsOf(reading: HandReading): number {
   return reading.score?.total ?? -1;
 }
 
-function namedLimit(query: HandQuery, name: string, yakuman: number): HandReading {
-  return finish(query, [{ name, han: 0 }], yakuman, 30);
+function handIsClosed(query: HandQuery): boolean {
+  return query.closed !== false;
+}
+
+/** Closed-only yaku score only on a menzen hand. Han comes from the catalog. */
+function ordinaryYaku(id: YakuId, closed: boolean): FoundYaku | null {
+  const yaku = YAKU_BY_ID.get(id);
+  if (!yaku || yaku.yakuman > 0) return null;
+  if (!closed && yaku.closedOnly) return null;
+  const han = closed ? yaku.closedHan : (yaku.openHan ?? 0);
+  if (han <= 0) return null;
+  return { name: yaku.name, han };
+}
+
+function pushYaku(items: FoundYaku[], id: YakuId, closed: boolean): void {
+  const found = ordinaryYaku(id, closed);
+  if (found) items.push(found);
+}
+
+function pushLimit(options: HandReading[], query: HandQuery, id: YakuId, yakuman: number): void {
+  const yaku = YAKU_BY_ID.get(id);
+  if (!yaku) return;
+  if (!handIsClosed(query) && yaku.closedOnly) return;
+  options.push(finish(query, [{ name: yaku.name, han: 0 }], yakuman, 30));
 }
 
 function finish(query: HandQuery, items: FoundYaku[], yakuman: number, fu: number): HandReading {
@@ -194,13 +248,15 @@ function finish(query: HandQuery, items: FoundYaku[], yakuman: number, fu: numbe
 }
 
 function yakuFromPairs(counts: readonly number[], query: HandQuery): FoundYaku[] {
-  const items: FoundYaku[] = [{ name: "Тиитойцу", han: 2 }];
-  pushSuitYaku(items, counts);
-  if (isTanyao(counts)) items.push({ name: "Таняо", han: 1 });
+  const closed = handIsClosed(query);
+  const items: FoundYaku[] = [];
+  pushYaku(items, "chiitoitsu", closed);
+  pushSuitYaku(items, counts, closed);
+  if (isTanyao(counts)) pushYaku(items, "tanyao", closed);
   if (isHonroutouTiles(counts) && !isChinroutou(counts) && !isTsuuiisou(counts)) {
-    items.push({ name: "Хонрото", han: 2 });
+    pushYaku(items, "honroutou", closed);
   }
-  if (query.winBy === "tsumo") items.push({ name: "Мендзен-цумо", han: 1 });
+  if (query.winBy === "tsumo") pushYaku(items, "menzenTsumo", closed);
   return items;
 }
 
@@ -209,17 +265,21 @@ function yakuFromStandard(
   counts: readonly number[],
   query: HandQuery,
   waits: readonly WaitKind[],
+  kanTiles: readonly number[],
 ): { items: FoundYaku[]; yakuman: number; fu: number; pinfuBlocked: boolean } {
   const trips = hand.melds.filter((meld) => meld.kind === "trip");
   const seqs = hand.melds.filter((meld) => meld.kind === "seq");
   const tanki = waits.length === 1 && waits[0] === "tanki";
-  const suuankou = trips.length === 4 && (query.winBy === "tsumo" || tanki);
+  const closed = handIsClosed(query);
+  const ankou = trips.length + (closed ? kanTiles.length : 0);
+  const suuankou = trips.length === 4 && seqs.length === 0 && (query.winBy === "tsumo" || tanki);
 
-  if (suuankou) {
-    const double = tanki;
+  if (suuankou && closed) {
+    const id = tanki ? "suuankouTanki" : "suuankou";
+    const name = YAKU_BY_ID.get(id)?.name ?? (tanki ? "Суанко танки" : "Суанко");
     return {
-      items: [{ name: double ? "Суанко танки" : "Суанко", han: 0 }],
-      yakuman: double ? 2 : 1,
+      items: [{ name, han: 0 }],
+      yakuman: tanki ? 2 : 1,
       fu: 30,
       pinfuBlocked: false,
     };
@@ -230,63 +290,91 @@ function yakuFromStandard(
   const sequenceHand = seqs.length === 4;
   const valuedPair = pairIsYakuhai(hand.pair, query.seat, query.round);
   const ryanmen = waits.length === 1 && waits[0] === "ryanmen";
-  if (sequenceHand && !valuedPair) {
-    if (ryanmen) items.push({ name: "Пинфу", han: 1 });
+  if (closed && sequenceHand && !valuedPair) {
+    if (ryanmen) pushYaku(items, "pinfu", true);
     else pinfuBlocked = true;
   }
 
-  for (const trip of trips) {
-    if (isDragon(trip.tile)) {
-      items.push({ name: `Якухай, ${DRAGON_NAME[trip.tile]}`, han: 1 });
-    }
-    const wind = windName(trip.tile);
-    if (wind) {
-      let han = 0;
-      if (trip.tile === WIND_TILE[query.seat]) han += 1;
-      if (trip.tile === WIND_TILE[query.round]) han += 1;
-      if (han > 0) items.push({ name: `Якухай, ${wind}`, han });
-    }
-  }
+  for (const tile of [...trips.map((trip) => trip.tile), ...kanTiles]) addYakuhai(items, tile, query);
 
   const pairs = sequencePairs(seqs);
-  if (pairs >= 2 && trips.length === 0) items.push({ name: "Рянпейко", han: 3 });
-  else if (pairs === 1) items.push({ name: "Иипейко", han: 1 });
-  if (hasSanshoku(seqs)) items.push({ name: "Сансёку-додзюн", han: 2 });
-  if (hasIttsu(seqs)) items.push({ name: "Итцу", han: 2 });
-  if (trips.length === 4) items.push({ name: "Тойтой", han: 2 });
-  if (trips.length >= 3) items.push({ name: "Сананко", han: 2 });
-  if (hasDoukou(trips)) items.push({ name: "Сансёку-доко", han: 2 });
-  if (isJunchan(hand)) items.push({ name: "Дзюнтян", han: 3 });
-  else if (isChanta(hand)) items.push({ name: "Тянта", han: 2 });
-  pushSuitYaku(items, counts);
-  if (isTanyao(counts)) items.push({ name: "Таняо", han: 1 });
-  if (isHonroutouTiles(counts) && !isChinroutou(counts) && !isTsuuiisou(counts)) {
-    items.push({ name: "Хонрото", han: 2 });
+  if (pairs >= 2 && trips.length === 0) pushYaku(items, "ryanpeikou", closed);
+  else if (pairs === 1) pushYaku(items, "iipeikou", closed);
+  if (hasSanshoku(seqs)) pushYaku(items, "sanshokuDoujun", closed);
+  if (hasIttsu(seqs)) pushYaku(items, "ittsu", closed);
+  if (seqs.length === 0 && trips.length + kanTiles.length === 4 && kanTiles.length < 4) {
+    pushYaku(items, "toitoi", closed);
   }
-  if (dragonSets(trips, hand.pair) === "shou") items.push({ name: "Сёсангэн", han: 2 });
-  if (query.winBy === "tsumo") items.push({ name: "Мендзен-цумо", han: 1 });
+  if (ankou >= 3) pushYaku(items, "sanankou", closed);
+  if (kanTiles.length === 3) pushYaku(items, "sankantsu", closed);
+  if (hasDoukou([...trips.map((trip) => trip.tile), ...kanTiles])) pushYaku(items, "sanshokuDoukou", closed);
+  if (isJunchan(hand, kanTiles)) pushYaku(items, "junchan", closed);
+  else if (isChanta(hand, kanTiles)) pushYaku(items, "chanta", closed);
+  pushSuitYaku(items, counts, closed);
+  if (isTanyao(counts)) pushYaku(items, "tanyao", closed);
+  if (isHonroutouTiles(counts) && !isChinroutou(counts) && !isTsuuiisou(counts)) {
+    pushYaku(items, "honroutou", closed);
+  }
+  if (dragonSets(trips, hand.pair, kanTiles) === "shou") pushYaku(items, "shousangen", closed);
+  if (query.winBy === "tsumo") pushYaku(items, "menzenTsumo", closed);
 
   const pinfu = items.some((item) => item.name === "Пинфу");
   return {
     items,
     yakuman: 0,
-    fu: pinfu ? (query.winBy === "ron" ? 30 : 20) : standardFu(hand, query, waits),
+    // Same fixed fu as the counter: closed pinfu is 20 on ron and on tsumo.
+    fu: pinfu ? fixedFuOf("pinfu") : standardFu(hand, query, waits, kanTiles),
     pinfuBlocked,
   };
 }
 
-function standardFu(hand: StandardHand, query: HandQuery, waits: readonly WaitKind[]): number {
+/** Fu the counter assigns to this yaku. Pinfu is 20, chiitoitsu is 25. */
+function fixedFuOf(id: YakuId): number {
+  const yaku = YAKU_BY_ID.get(id);
+  if (yaku && "fixedFu" in yaku && yaku.fixedFu != null) return yaku.fixedFu;
+  throw new Error(`У яку нет фиксированных фу: ${id}`);
+}
+
+function addYakuhai(items: FoundYaku[], tile: number, query: HandQuery): void {
+  if (isDragon(tile)) {
+    items.push({ name: `Якухай, ${DRAGON_NAME[tile]}`, han: 1 });
+  }
+  const wind = windName(tile);
+  if (!wind) return;
+  let han = 0;
+  if (tile === WIND_TILE[query.seat]) han += 1;
+  if (tile === WIND_TILE[query.round]) han += 1;
+  if (han > 0) items.push({ name: `Якухай, ${wind}`, han });
+}
+
+function standardFu(
+  hand: StandardHand,
+  query: HandQuery,
+  waits: readonly WaitKind[],
+  kanTiles: readonly number[],
+): number {
   let fu = 20;
-  fu += query.winBy === "ron" ? 10 : 2;
+  if (query.winBy === "tsumo") fu += 2;
+  else if (handIsClosed(query)) fu += 10;
+  // Which set was called is unknown, so a triplet keeps its closed fu.
   for (const meld of hand.melds) {
     if (meld.kind !== "trip") continue;
     fu += isTerminalOrHonor(meld.tile) ? 8 : 4;
+  }
+  const closedKan = handIsClosed(query);
+  for (const tile of kanTiles) {
+    const honor = isTerminalOrHonor(tile);
+    if (closedKan) fu += honor ? 32 : 16;
+    else fu += honor ? 16 : 8;
   }
   fu += pairFu(hand.pair, query.seat, query.round);
   if (waits.length === 1 && (waits[0] === "tanki" || waits[0] === "kanchan" || waits[0] === "penchan")) {
     fu += 2;
   }
-  return Math.ceil(fu / 10) * 10;
+  const rounded = Math.ceil(fu / 10) * 10;
+  // Open hands are not pinfu, so 20 fu becomes 30 unless a triplet, pair, or wait already raised it.
+  if (!handIsClosed(query) && rounded === 20) return 30;
+  return rounded;
 }
 
 function pairFu(pair: number, seat: Wind, round: Wind): number {
@@ -301,7 +389,7 @@ function pairIsYakuhai(pair: number, seat: Wind, round: Wind): boolean {
   return isDragon(pair) || pair === WIND_TILE[seat] || pair === WIND_TILE[round];
 }
 
-function pushSuitYaku(items: FoundYaku[], counts: readonly number[]): void {
+function pushSuitYaku(items: FoundYaku[], counts: readonly number[], closed: boolean): void {
   const suits = new Set<string>();
   let honors = false;
   for (let tile = 0; tile < 34; tile += 1) {
@@ -310,7 +398,7 @@ function pushSuitYaku(items: FoundYaku[], counts: readonly number[]): void {
     else suits.add(suitOf(tile));
   }
   if (suits.size !== 1) return;
-  items.push(honors ? { name: "Хонъицу", han: 3 } : { name: "Чинъицу", han: 6 });
+  pushYaku(items, honors ? "honitsu" : "chinitsu", closed);
 }
 
 function sequencePairs(seqs: readonly Meld[]): number {
@@ -337,18 +425,19 @@ function hasIttsu(seqs: readonly Meld[]): boolean {
   return false;
 }
 
-function hasDoukou(trips: readonly Meld[]): boolean {
+function hasDoukou(tiles: readonly number[]): boolean {
   for (let rank = 0; rank < 9; rank += 1) {
     const suits = new Set(
-      trips.filter((meld) => meld.tile < 27 && meld.tile % 9 === rank).map((meld) => Math.floor(meld.tile / 9)),
+      tiles.filter((tile) => tile < 27 && tile % 9 === rank).map((tile) => Math.floor(tile / 9)),
     );
     if (suits.size === 3) return true;
   }
   return false;
 }
 
-function isChanta(hand: StandardHand): boolean {
+function isChanta(hand: StandardHand, kanTiles: readonly number[]): boolean {
   if (!isTerminalOrHonor(hand.pair)) return false;
+  if (kanTiles.some((tile) => !isTerminalOrHonor(tile))) return false;
   return hand.melds.every((meld) => {
     if (meld.kind === "trip") return isTerminalOrHonor(meld.tile);
     const rank = rankOf(meld.tile);
@@ -356,8 +445,9 @@ function isChanta(hand: StandardHand): boolean {
   });
 }
 
-function isJunchan(hand: StandardHand): boolean {
+function isJunchan(hand: StandardHand, kanTiles: readonly number[]): boolean {
   if (isHonor(hand.pair) || !isTerminal(hand.pair)) return false;
+  if (kanTiles.some((tile) => !isTerminal(tile))) return false;
   return hand.melds.every((meld) => {
     if (meld.kind === "trip") return isTerminal(meld.tile);
     const rank = rankOf(meld.tile);
@@ -365,8 +455,11 @@ function isJunchan(hand: StandardHand): boolean {
   });
 }
 
-function dragonSets(trips: readonly Meld[], pair: number): "dai" | "shou" | null {
+function dragonSets(trips: readonly Meld[], pair: number, kanTiles: readonly number[]): "dai" | "shou" | null {
   const dragons = new Set(trips.filter((meld) => isDragon(meld.tile)).map((meld) => meld.tile));
+  for (const tile of kanTiles) {
+    if (isDragon(tile)) dragons.add(tile);
+  }
   if (dragons.size === 3) return "dai";
   if (dragons.size === 2 && isDragon(pair)) return "shou";
   return null;
@@ -380,10 +473,7 @@ function isTanyao(counts: readonly number[]): boolean {
 }
 
 function isHonroutouTiles(counts: readonly number[]): boolean {
-  for (let tile = 0; tile < 34; tile += 1) {
-    if (counts[tile] > 0 && !isTerminalOrHonor(tile)) return false;
-  }
-  return tileTotal(counts) === 14;
+  return counts.some((n) => n > 0) && counts.every((n, tile) => n === 0 || isTerminalOrHonor(tile));
 }
 
 function isKokushi(counts: readonly number[]): boolean {
@@ -430,15 +520,15 @@ function isDaisuushii(counts: readonly number[]): boolean {
 }
 
 function isTsuuiisou(counts: readonly number[]): boolean {
-  return tileTotal(counts) === 14 && counts.every((n, tile) => n === 0 || isHonor(tile));
+  return counts.some((n) => n > 0) && counts.every((n, tile) => n === 0 || isHonor(tile));
 }
 
 function isChinroutou(counts: readonly number[]): boolean {
-  return tileTotal(counts) === 14 && counts.every((n, tile) => n === 0 || isTerminal(tile));
+  return counts.some((n) => n > 0) && counts.every((n, tile) => n === 0 || isTerminal(tile));
 }
 
 function isRyuuiisou(counts: readonly number[]): boolean {
-  return tileTotal(counts) === 14 && counts.every((n, tile) => n === 0 || GREEN.has(tile));
+  return counts.some((n) => n > 0) && counts.every((n, tile) => n === 0 || GREEN.has(tile));
 }
 
 function isChiitoitsu(counts: readonly number[]): boolean {
@@ -459,14 +549,14 @@ function windName(tile: number): string | null {
   return null;
 }
 
-function standardHands(counts: readonly number[]): StandardHand[] {
+function standardHands(counts: readonly number[], meldCount = 4): StandardHand[] {
   const found: StandardHand[] = [];
   const seen = new Set<string>();
   const countsCopy = counts.slice();
   for (let pair = 0; pair < 34; pair += 1) {
     if (countsCopy[pair] < 2) continue;
     countsCopy[pair] -= 2;
-    collectMelds(countsCopy, [], (melds) => {
+    collectMelds(countsCopy, [], meldCount, (melds) => {
       const key = `${pair}|${melds
         .map((meld) => `${meld.kind}${meld.tile}`)
         .sort()
@@ -480,8 +570,13 @@ function standardHands(counts: readonly number[]): StandardHand[] {
   return found;
 }
 
-function collectMelds(counts: number[], melds: Meld[], onDone: (melds: Meld[]) => void): void {
-  if (melds.length === 4) {
+function collectMelds(
+  counts: number[],
+  melds: Meld[],
+  need: number,
+  onDone: (melds: Meld[]) => void,
+): void {
+  if (melds.length === need) {
     if (counts.every((n) => n === 0)) onDone(melds);
     return;
   }
@@ -491,7 +586,7 @@ function collectMelds(counts: number[], melds: Meld[], onDone: (melds: Meld[]) =
   if (counts[tile] >= 3) {
     counts[tile] -= 3;
     melds.push({ kind: "trip", tile });
-    collectMelds(counts, melds, onDone);
+    collectMelds(counts, melds, need, onDone);
     melds.pop();
     counts[tile] += 3;
   }
@@ -500,7 +595,7 @@ function collectMelds(counts: number[], melds: Meld[], onDone: (melds: Meld[]) =
     counts[tile + 1] -= 1;
     counts[tile + 2] -= 1;
     melds.push({ kind: "seq", tile });
-    collectMelds(counts, melds, onDone);
+    collectMelds(counts, melds, need, onDone);
     melds.pop();
     counts[tile] += 1;
     counts[tile + 1] += 1;
@@ -514,14 +609,15 @@ function without(counts: readonly number[], tile: number): number[] {
   return next;
 }
 
-function tenpaiKinds(counts: readonly number[], win: number): WaitKind[] {
+function tenpaiKinds(counts: readonly number[], win: number, melds = 4): WaitKind[] {
   const kinds = new Set<WaitKind>();
   const tiles = counts.slice();
   if (tiles[win] >= 1) {
     tiles[win] -= 1;
-    if (exactMelds(tiles, 4)) kinds.add("tanki");
+    if (exactMelds(tiles, melds)) kinds.add("tanki");
     tiles[win] += 1;
   }
+  if (melds === 0) return [...kinds];
   for (let pair = 0; pair < 34; pair += 1) {
     if (tiles[pair] < 2) continue;
     tiles[pair] -= 2;
@@ -531,7 +627,7 @@ function tenpaiKinds(counts: readonly number[], win: number): WaitKind[] {
         if (a === b ? tiles[a] < 2 : tiles[b] === 0) continue;
         tiles[a] -= 1;
         tiles[b] -= 1;
-        if (exactMelds(tiles, 3)) {
+        if (exactMelds(tiles, melds - 1)) {
           if (a === b && a === win) kinds.add("shanpon");
           const shape = a === b ? null : taatsuShape(a, b, win);
           if (shape) kinds.add(shape);

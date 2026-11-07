@@ -21,7 +21,6 @@ const colors = {
 
 export function YakuPicker({
   closed,
-  onClosedChange,
   selected,
   onToggle,
   counters,
@@ -29,7 +28,6 @@ export function YakuPicker({
   sum,
 }: {
   closed: boolean;
-  onClosedChange: (closed: boolean) => void;
   selected: readonly YakuId[];
   onToggle: (id: YakuId) => void;
   counters: HanCounters;
@@ -40,20 +38,6 @@ export function YakuPicker({
 
   return (
     <View style={styles.wrap}>
-      <View style={styles.pair}>
-        <ModeButton
-          label="Закрытая"
-          selected={closed}
-          onPress={() => onClosedChange(true)}
-          testID="hand-closed"
-        />
-        <ModeButton
-          label="Открытая"
-          selected={!closed}
-          onPress={() => onClosedChange(false)}
-          testID="hand-open"
-        />
-      </View>
       <Text style={styles.hint}>
         {sum.active
           ? sum.yakuman > 0
@@ -128,31 +112,6 @@ export function YakuPicker({
   );
 }
 
-function ModeButton({
-  label,
-  selected,
-  onPress,
-  testID,
-}: {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-  testID: string;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ selected }}
-      testID={testID}
-      onPress={onPress}
-      style={({ pressed }) => [styles.mode, selected && styles.modeOn, pressed && styles.pressed]}
-    >
-      <Text style={[styles.modeText, selected && styles.modeTextOn]}>{label}</Text>
-    </Pressable>
-  );
-}
-
 function YakuRow({
   id,
   name,
@@ -207,32 +166,6 @@ function YakuRow({
 const styles = StyleSheet.create({
   wrap: {
     gap: 8,
-  },
-  pair: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  mode: {
-    flex: 1,
-    minHeight: 64,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.chipEdge,
-    backgroundColor: colors.chip,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modeOn: {
-    backgroundColor: colors.gold,
-    borderColor: colors.gold,
-  },
-  modeText: {
-    color: colors.text,
-    fontSize: 20,
-    fontWeight: "700",
-  },
-  modeTextOn: {
-    color: colors.ink,
   },
   hint: {
     color: colors.muted,

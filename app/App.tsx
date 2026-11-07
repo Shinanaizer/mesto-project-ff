@@ -3,18 +3,21 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import {
+  ZERO_KANS,
   changeExtraHan,
   changeFu,
+  changeKan,
   decideFu,
   DEFAULT_FU,
+  kanFu,
   scoreParts,
   type FuDecision,
+  type KanCounts,
 } from "./src/scoring/combine";
 import {
   formatHan,
   formatPoints,
   limitLabel,
-  paymentLines,
   winByLabel,
   winnerLabel,
   type Winner,
@@ -24,6 +27,10 @@ import { ZERO_COUNTERS, type HanCounters, type YakuId } from "./src/yaku/catalog
 import { YakuPicker } from "./src/yaku/YakuPicker";
 import { dropClosedOnly, impliedFuValues, sumYaku, toggleYaku } from "./src/yaku/sum";
 import { HandBuilder } from "./src/hand/HandBuilder";
+import { BonusFields, CountRow } from "./src/game/BonusFields";
+import { GameTable } from "./src/game/GameTable";
+import { useLedger } from "./src/game/storage";
+import { addHand, awardView, finishGame, subtractPoints, type SettleInput } from "./src/game/table";
 
 const colors = {
   bg: "#10241c",
@@ -38,7 +45,20 @@ const colors = {
 };
 
 export default function App() {
-  const [screen, setScreen] = useState<"counter" | "hand">("counter");
+  const [screen, setScreen] = useState<"counter" | "hand" | "game">("counter");
+  const { ledger, setLedger, ready } = useLedger();
+
+  function record(input: SettleInput) {
+    setLedger((current) => ({ ...current, score: addHand(current.score, input) }));
+  }
+
+  function subtract(amount: number) {
+    setLedger((current) => ({ ...current, score: subtractPoints(current.score, amount) }));
+  }
+
+  function finish() {
+    setLedger((current) => finishGame(current, new Date().toISOString()));
+  }
 
   useEffect(() => {
     if (Platform.OS !== "web" || typeof document === "undefined") return;
@@ -73,18 +93,33 @@ export default function App() {
             >
               <Text style={[styles.switchText, screen === "hand" && styles.switchTextOn]}>Рука</Text>
             </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ selected: screen === "game" }}
+              onPress={() => setScreen("game")}
+              style={[styles.switchButton, screen === "game" && styles.switchOn]}
+              testID="screen-game"
+            >
+              <Text style={[styles.switchText, screen === "game" && styles.switchTextOn]}>Игра</Text>
+            </Pressable>
           </View>
           <View
             style={[styles.fill, screen !== "counter" && styles.hidden]}
             pointerEvents={screen === "counter" ? "auto" : "none"}
           >
-            <Scorer />
+            <Scorer canSave={ready} onSave={record} />
           </View>
           <View
             style={[styles.fill, screen !== "hand" && styles.hidden]}
             pointerEvents={screen === "hand" ? "auto" : "none"}
           >
-            <HandBuilder />
+            <HandBuilder canSave={ready} onSave={record} />
+          </View>
+          <View
+            style={[styles.fill, screen !== "game" && styles.hidden]}
+            pointerEvents={screen === "game" ? "auto" : "none"}
+          >
+            <GameTable ledger={ledger} onSubtract={subtract} onFinish={finish} />
           </View>
         </View>
       </SafeAreaView>
@@ -92,14 +127,18 @@ export default function App() {
   );
 }
 
-function Scorer() {
+function Scorer({ canSave, onSave }: { canSave: boolean; onSave: (input: SettleInput) => void }) {
   const [extraHan, setExtraHan] = useState(0);
   const [fu, setFu] = useState(DEFAULT_FU);
+  const [kans, setKans] = useState<KanCounts>(ZERO_KANS);
   const [winner, setWinner] = useState<Winner>("nonDealer");
   const [winBy, setWinBy] = useState<WinBy>("ron");
   const [closed, setClosed] = useState(true);
   const [selected, setSelected] = useState<YakuId[]>([]);
   const [counters, setCounters] = useState<HanCounters>(ZERO_COUNTERS);
+  const [sticks, setSticks] = useState(0);
+  const [honba, setHonba] = useState(0);
+  const [saved, setSaved] = useState(false);
 
   const yakuSum = sumYaku({ closed, selected, counters });
   const impliedFu = impliedFuValues(selected, closed);
@@ -113,10 +152,26 @@ function Scorer() {
     yakuman: yakuSum.yakuman,
     winner,
     winBy,
+    kans,
   });
-  const lines = score ? paymentLines(score) : [];
+  const award = score ? awardView(score, sticks, honba) : null;
   const badge = score ? limitLabel(score) : null;
-  const fuText = fuLabel(fuDecision);
+  const addedKanFu = kanFu(kans);
+  const fuText =
+    score && addedKanFu > 0 && yakuSum.yakuman === 0 ? `${score.fu} фу` : fuLabel(fuDecision);
+
+  function shiftKan(key: keyof KanCounts, delta: -1 | 1) {
+    setKans((current) => changeKan(current, key, delta));
+    setSaved(false);
+  }
+
+  function saveHand() {
+    if (!score || !canSave) return;
+    onSave({ winBy, hand: score, sticks, honba });
+    setSticks(0);
+    setHonba(0);
+    setSaved(true);
+  }
 
   return (
     <View style={styles.fill}>
@@ -128,7 +183,7 @@ function Scorer() {
               testID="total-points"
               accessibilityLiveRegion="polite"
             >
-              {score ? formatPoints(score.total) : "—"}
+              {award ? formatPoints(award.total) : "—"}
             </Text>
             <View style={styles.lineSlot}>
               {badge ? (
@@ -172,13 +227,177 @@ function Scorer() {
               {winnerLabel(winner)} · {winByLabel(winBy)}
             </Text>
             <View style={styles.paySlot}>
-              <Text style={styles.pay} numberOfLines={1}>
-                {lines[0] ?? ""}
-              </Text>
-              <Text style={styles.pay} numberOfLines={1}>
-                {lines[1] ?? ""}
-              </Text>
+              {(award?.lines ?? ["", ""]).slice(0, 3).map((line, index) => (
+                <Text key={`${index}-${line}`} style={styles.pay} numberOfLines={1}>
+                  {line}
+                </Text>
+              ))}
             </View>
+          </View>
+        </View>
+
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.section}>
+            <CountRow
+              label="Хан"
+              value={extraHan}
+              testID="han"
+              onDecrease={() => setExtraHan((current) => changeExtraHan(current, -1))}
+              onIncrease={() => setExtraHan((current) => changeExtraHan(current, 1))}
+            />
+            {han >= 13 && yakuSum.yakuman === 0 ? (
+              <Hint>13 и больше хан — кадзоэ-якуман, очки одного якмана.</Hint>
+            ) : han >= 5 && yakuSum.yakuman === 0 ? (
+              <Hint>С 5 хан число фу на очки не влияет.</Hint>
+            ) : (
+              <Hint>Плюс к хан из яку. Если яку не выбраны, это весь хан.</Hint>
+            )}
+          </View>
+
+          <View style={styles.section}>
+            <CountRow
+              label="Фу"
+              value={fu}
+              testID="fu"
+              onDecrease={() => setFu((current) => changeFu(current, -1))}
+              onIncrease={() => setFu((current) => changeFu(current, 1))}
+            />
+            <Hint>По умолчанию 30. Ноль берёт фу у пинфу и тиитойцу. Каны сюда не входят.</Hint>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Каны</Text>
+            <CountRow
+              label="Открытый, простая"
+              value={kans.openSimple}
+              testID="kan-open-simple"
+              onDecrease={() => shiftKan("openSimple", -1)}
+              onIncrease={() => shiftKan("openSimple", 1)}
+            />
+            <CountRow
+              label="Открытый, 1·9·честь"
+              value={kans.openHonor}
+              testID="kan-open-honor"
+              onDecrease={() => shiftKan("openHonor", -1)}
+              onIncrease={() => shiftKan("openHonor", 1)}
+            />
+            <CountRow
+              label="Закрытый, простая"
+              value={kans.closedSimple}
+              testID="kan-closed-simple"
+              onDecrease={() => shiftKan("closedSimple", -1)}
+              onIncrease={() => shiftKan("closedSimple", 1)}
+            />
+            <CountRow
+              label="Закрытый, 1·9·честь"
+              value={kans.closedHonor}
+              testID="kan-closed-honor"
+              onDecrease={() => shiftKan("closedHonor", -1)}
+              onIncrease={() => shiftKan("closedHonor", 1)}
+            />
+            <Hint>
+              {addedKanFu > 0
+                ? `Каны добавляют ${addedKanFu} фу и округляют сумму до десятка.`
+                : "Открытый кан 8 или 16 фу, закрытый 16 или 32. Вместе не больше четырёх."}
+            </Hint>
+          </View>
+
+          <Section title="Игрок">
+            <View style={styles.pair}>
+              <BlockChoice
+                label="Не-дилер"
+                selected={winner === "nonDealer"}
+                onPress={() => {
+                  setWinner("nonDealer");
+                  setSaved(false);
+                }}
+                testID="winner-non-dealer"
+              />
+              <BlockChoice
+                label="Дилер"
+                selected={winner === "dealer"}
+                onPress={() => {
+                  setWinner("dealer");
+                  setSaved(false);
+                }}
+                testID="winner-dealer"
+              />
+            </View>
+          </Section>
+
+          <Section title="Победа">
+            <View style={styles.pair}>
+              <BlockChoice
+                label="Рон"
+                selected={winBy === "ron"}
+                onPress={() => {
+                  setWinBy("ron");
+                  setSaved(false);
+                }}
+                testID="win-ron"
+              />
+              <BlockChoice
+                label="Цумо"
+                selected={winBy === "tsumo"}
+                onPress={() => {
+                  setWinBy("tsumo");
+                  setSaved(false);
+                }}
+                testID="win-tsumo"
+              />
+            </View>
+            <View style={styles.pair}>
+              <BlockChoice
+                label="Закрытая"
+                selected={closed}
+                onPress={() => setClosed(true)}
+                testID="hand-closed"
+              />
+              <BlockChoice
+                label="Открытая"
+                selected={!closed}
+                onPress={() => {
+                  setClosed(false);
+                  setSelected((current) => dropClosedOnly(current));
+                }}
+                testID="hand-open"
+              />
+            </View>
+          </Section>
+
+          <Section title="Стол">
+            <BonusFields
+              sticks={sticks}
+              honba={honba}
+              onSticks={(value) => {
+                setSticks(value);
+                setSaved(false);
+              }}
+              onHonba={(value) => {
+                setHonba(value);
+                setSaved(false);
+              }}
+              idPrefix="counter"
+            />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Записать в партию"
+              accessibilityState={{ disabled: !score || !canSave }}
+              disabled={!score || !canSave}
+              testID="counter-save"
+              onPress={saveHand}
+              style={({ pressed }) => [
+                styles.save,
+                (!score || !canSave) && styles.clearDisabled,
+                pressed && score && canSave && styles.chipPressed,
+              ]}
+            >
+              <Text style={styles.saveText}>В партию</Text>
+            </Pressable>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Сбросить яку"
@@ -197,84 +416,16 @@ function Scorer() {
             >
               <Text style={styles.clearText}>Сбросить яку</Text>
             </Pressable>
-          </View>
-        </View>
-
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-        >
-          <Section title="Хан">
-            <ValueCounter
-              value={extraHan}
-              description="Плюс к хан из яку. Если яку не выбраны, это весь хан."
-              decreaseLabel="Хан меньше"
-              increaseLabel="Хан больше"
-              testID="han"
-              onDecrease={() => setExtraHan((current) => changeExtraHan(current, -1))}
-              onIncrease={() => setExtraHan((current) => changeExtraHan(current, 1))}
-            />
-            {han >= 13 && yakuSum.yakuman === 0 ? (
-              <Hint>13 и больше хан — кадзоэ-якуман, очки одного якмана.</Hint>
-            ) : han >= 5 && yakuSum.yakuman === 0 ? (
-              <Hint>С 5 хан число фу на очки не влияет.</Hint>
+            {saved ? (
+              <Text style={styles.hint} testID="counter-saved">
+                Записано в партию
+              </Text>
             ) : null}
-          </Section>
-
-          <Section title="Фу">
-            <ValueCounter
-              value={fu}
-              description="По умолчанию 30. Ноль берёт фу у пинфу и тиитойцу. От 20 заданное число важнее."
-              decreaseLabel="Фу меньше"
-              increaseLabel="Фу больше"
-              testID="fu"
-              onDecrease={() => setFu((current) => changeFu(current, -1))}
-              onIncrease={() => setFu((current) => changeFu(current, 1))}
-            />
-          </Section>
-
-          <Section title="Игрок">
-            <View style={styles.pair}>
-              <BlockChoice
-                label="Не-дилер"
-                selected={winner === "nonDealer"}
-                onPress={() => setWinner("nonDealer")}
-                testID="winner-non-dealer"
-              />
-              <BlockChoice
-                label="Дилер"
-                selected={winner === "dealer"}
-                onPress={() => setWinner("dealer")}
-                testID="winner-dealer"
-              />
-            </View>
-          </Section>
-
-          <Section title="Победа">
-            <View style={styles.pair}>
-              <BlockChoice
-                label="Рон"
-                selected={winBy === "ron"}
-                onPress={() => setWinBy("ron")}
-                testID="win-ron"
-              />
-              <BlockChoice
-                label="Цумо"
-                selected={winBy === "tsumo"}
-                onPress={() => setWinBy("tsumo")}
-                testID="win-tsumo"
-              />
-            </View>
           </Section>
 
           <Section title="Яку">
             <YakuPicker
               closed={closed}
-              onClosedChange={(next) => {
-                setClosed(next);
-                if (!next) setSelected((current) => dropClosedOnly(current));
-              }}
               selected={selected}
               onToggle={(id) => setSelected((current) => toggleYaku(current, id))}
               counters={counters}
@@ -308,53 +459,6 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 function Hint({ children }: { children: string }) {
   return <Text style={styles.hint}>{children}</Text>;
-}
-
-function ValueCounter({
-  value,
-  description,
-  decreaseLabel,
-  increaseLabel,
-  testID,
-  onDecrease,
-  onIncrease,
-}: {
-  value: number;
-  description: string;
-  decreaseLabel: string;
-  increaseLabel: string;
-  testID: string;
-  onDecrease: () => void;
-  onIncrease: () => void;
-}) {
-  return (
-    <View style={styles.counter}>
-      <Text style={styles.counterDescription}>{description}</Text>
-      <View style={styles.stepper}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={decreaseLabel}
-          testID={`${testID}-dec`}
-          onPress={onDecrease}
-          style={({ pressed }) => [styles.step, pressed && styles.chipPressed]}
-        >
-          <Text style={styles.stepText}>−</Text>
-        </Pressable>
-        <Text style={styles.count} testID={`${testID}-count`}>
-          {value}
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={increaseLabel}
-          testID={`${testID}-inc`}
-          onPress={onIncrease}
-          style={({ pressed }) => [styles.step, pressed && styles.chipPressed]}
-        >
-          <Text style={styles.stepText}>+</Text>
-        </Pressable>
-      </View>
-    </View>
-  );
 }
 
 function BlockChoice({
@@ -437,7 +541,7 @@ const styles = StyleSheet.create({
   },
   switchText: {
     color: colors.text,
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: "800",
   },
   switchTextOn: {
@@ -529,11 +633,10 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   paySlot: {
-    height: 40,
+    minHeight: 40,
     width: "100%",
     alignItems: "center",
     justifyContent: "center",
-    overflow: "hidden",
   },
   pay: {
     color: colors.pay,
@@ -577,43 +680,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
   },
-  counter: {
-    gap: 10,
-  },
-  counterDescription: {
-    color: colors.muted,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  stepper: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  step: {
-    width: 64,
-    height: 64,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.chipEdge,
-    backgroundColor: colors.chip,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  stepText: {
-    color: colors.text,
-    fontSize: 32,
-    fontWeight: "700",
-    lineHeight: 36,
-  },
-  count: {
-    minWidth: 64,
-    color: colors.text,
-    fontSize: 32,
-    fontWeight: "800",
-    textAlign: "center",
-    fontVariant: ["tabular-nums"],
-  },
   chip: {
     flexGrow: 0,
     flexBasis: "22%",
@@ -646,6 +712,18 @@ const styles = StyleSheet.create({
   pair: {
     flexDirection: "row",
     gap: 8,
+  },
+  save: {
+    minHeight: 48,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.gold,
+  },
+  saveText: {
+    color: colors.ink,
+    fontSize: 18,
+    fontWeight: "800",
   },
   block: {
     flex: 1,
