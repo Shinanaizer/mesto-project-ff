@@ -207,35 +207,6 @@ export function HandBuilder({
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      {pendingKan != null ? (
-        <View style={styles.kanAsk} testID="kan-prompt">
-          <Text style={styles.section}>Четыре {tileLabel(pendingKan)}. Это кан?</Text>
-          <Text style={styles.hint}>
-            Да — плитка фиксируется, в руке становится место ещё для одной, фу кана идут в счёт. Нет — плитка
-            остаётся обычной.
-          </Text>
-          <View style={styles.kanAnswers}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Это кан"
-              onPress={() => answerKan(true)}
-              style={styles.choice}
-              testID="kan-yes"
-            >
-              <Text style={styles.choiceText}>Да, кан</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Это не кан"
-              onPress={() => answerKan(false)}
-              style={styles.choice}
-              testID="kan-no"
-            >
-              <Text style={styles.choiceText}>Нет</Text>
-            </Pressable>
-          </View>
-        </View>
-      ) : null}
       <View>
         <Text style={styles.section}>Победная плитка</Text>
         <Text style={styles.hint}>Нужна для пинфу: засчитается, если ожидание явно с двух сторон.</Text>
@@ -393,30 +364,63 @@ export function HandBuilder({
         </Text>
       ) : null}
 
-      {ROWS.map((row) => (
-        <View key={row.title}>
-          <Text style={styles.section}>{row.title}</Text>
-          <View style={styles.palette}>
-            {row.ids.map((id) => {
-              const full = pendingKan != null || counts[id] >= 4 || tiles.length >= tileLimit;
-              return (
-                <Pressable
-                  key={id}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Добавить ${tileLabel(id)}`}
-                  disabled={full}
-                  onPress={() => addTile(id)}
-                  style={[styles.paletteTile, full && styles.full]}
-                  testID={`tile-${id}`}
-                >
-                  <TileFace id={id} />
-                  {counts[id] > 0 ? <Text style={styles.have}>{counts[id]}</Text> : null}
-                </Pressable>
-              );
-            })}
+      <View style={styles.picker}>
+        {ROWS.map((row) => (
+          <View key={row.title}>
+            <Text style={styles.section}>{row.title}</Text>
+            <View style={styles.palette}>
+              {row.ids.map((id) => {
+                const full = pendingKan != null || counts[id] >= 4 || tiles.length >= tileLimit;
+                return (
+                  <Pressable
+                    key={id}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Добавить ${tileLabel(id)}`}
+                    disabled={full}
+                    onPress={() => addTile(id)}
+                    style={[styles.paletteTile, full && styles.full]}
+                    testID={`tile-${id}`}
+                  >
+                    <TileFace id={id} />
+                    {counts[id] > 0 ? <Text style={styles.have}>{counts[id]}</Text> : null}
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
-        </View>
-      ))}
+        ))}
+        {pendingKan != null ? (
+          <View style={styles.kanCover} testID="kan-prompt" accessibilityViewIsModal>
+            <View style={styles.kanAsk}>
+              <Text style={styles.section}>Четыре {tileLabel(pendingKan)}. Это кан?</Text>
+              <Text style={styles.hint}>
+                Да — плитка фиксируется, в руке становится место ещё для одной, фу кана идут в счёт. Нет — плитка
+                остаётся обычной.
+              </Text>
+              <View style={styles.kanAnswers}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Это кан"
+                  onPress={() => answerKan(true)}
+                  style={styles.choice}
+                  testID="kan-yes"
+                >
+                  <Text style={styles.choiceText}>Да, кан</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Это не кан"
+                  onPress={() => answerKan(false)}
+                  style={styles.choice}
+                  testID="kan-no"
+                >
+                  <Text style={styles.choiceText}>Нет</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        ) : null}
+      </View>
       </ScrollView>
     </View>
   );
@@ -598,8 +602,29 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 14,
   },
+  picker: {
+    position: "relative",
+    gap: 10,
+  },
+  kanCover: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 2,
+    backgroundColor: "rgba(16, 36, 28, 0.92)",
+    borderRadius: 12,
+    justifyContent: "center",
+    padding: 8,
+  },
   kanAsk: {
     gap: 8,
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.gold,
+    padding: 12,
   },
   kanAnswers: {
     flexDirection: "row",

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { scoreHand } from "../scoring/score";
 import { ZERO_COUNTERS, type HanCounters, type YakuId } from "./catalog";
-import { dropClosedOnly, impliedFuValues, sumYaku, toggleYaku } from "./sum";
+import { dropClosedOnly, impliedFuValues, sumYaku, toggleYaku, winningHan } from "./sum";
 
 function counters(partial: Partial<HanCounters> = {}): HanCounters {
   return { ...ZERO_COUNTERS, ...partial };
@@ -54,14 +54,21 @@ describe("ordinary yaku sum", () => {
 });
 
 describe("dora and yakuhai counters", () => {
-  it("adds each counter as one han", () => {
+  it("adds yakuhai as han and keeps dora off the yaku total", () => {
     const sum = hand(["tanyao"], true, { yakuhai: 2, dora: 1, uraDora: 1, akaDora: 1, kanDora: 1 });
-    assert.equal(sum.han, 7);
+    assert.equal(sum.han, 6);
     assert.equal(sum.yakuman, 0);
+    assert.equal(winningHan(sum.han, 0, 1), 7);
   });
 
-  it("lets counters drive han with no yaku selected", () => {
-    assert.deepEqual(hand([], true, { dora: 3 }), { han: 3, yakuman: 0, active: true });
+  it("does not treat dora alone as a yaku", () => {
+    assert.deepEqual(hand([], true, { dora: 3 }), { han: 0, yakuman: 0, active: false });
+    assert.equal(winningHan(0, 0, 3), 0);
+  });
+
+  it("lets yakuhai score with no dora", () => {
+    assert.deepEqual(hand([], true, { yakuhai: 1 }), { han: 1, yakuman: 0, active: true });
+    assert.equal(winningHan(1, 0, 0), 1);
   });
 
   it("rejects a negative counter", () => {
@@ -76,7 +83,7 @@ describe("yakuman replaces han", () => {
   it("scores a single yakuman without adding han", () => {
     const sum = hand(["kokushi", "tanyao", "pinfu"], true, { dora: 3 });
     assert.equal(sum.yakuman, 1);
-    assert.equal(sum.han, 5);
+    assert.equal(sum.han, 2);
     const score = scoreHand({
       han: Math.max(sum.han, 1),
       fu: 30,

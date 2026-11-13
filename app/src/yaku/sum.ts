@@ -31,12 +31,13 @@ function counterValue(value: number, name: string): number {
 
 export function sumYaku(input: YakuSumInput): YakuSum {
   const yakuhai = counterValue(input.counters.yakuhai, "Якухай");
-  const dora = counterValue(input.counters.dora, "Дора");
+  counterValue(input.counters.dora, "Дора");
   const uraDora = counterValue(input.counters.uraDora, "Ура-дора");
   const akaDora = counterValue(input.counters.akaDora, "Ака-дора");
   const kanDora = counterValue(input.counters.kanDora, "Кан-дора");
 
-  let han = yakuhai + dora + uraDora + akaDora + kanDora;
+  // Dora is not a yaku. It is added later, and only when the hand already scores.
+  let han = yakuhai + uraDora + akaDora + kanDora;
   let yakuman = 0;
 
   for (const id of new Set(input.selected)) {
@@ -69,6 +70,25 @@ export function dropClosedOnly(selected: readonly YakuId[]): YakuId[] {
     const yaku = YAKU_BY_ID.get(id);
     return yaku != null && !yaku.closedOnly;
   });
+}
+
+/**
+ * Han used for the points card. Dora adds only on top of a yaku or the han
+ * counter. Dora alone is not a winning hand.
+ */
+export function winningHan(yakuHan: number, extraHan: number, dora: number): number {
+  if (!Number.isSafeInteger(yakuHan) || yakuHan < 0) {
+    throw new RangeError("Хан яку должен быть целым от 0");
+  }
+  if (!Number.isSafeInteger(extraHan) || extraHan < 0) {
+    throw new RangeError("Дополнительный хан должен быть целым от 0");
+  }
+  if (!Number.isSafeInteger(dora) || dora < 0) {
+    throw new RangeError("Дора должна быть целым от 0");
+  }
+  const base = yakuHan + extraHan;
+  if (base < 1) return 0;
+  return base + dora;
 }
 
 export function clampCounter(value: number): number {

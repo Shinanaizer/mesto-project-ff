@@ -23,9 +23,9 @@ import {
   type Winner,
   type WinBy,
 } from "./src/scoring/score";
-import { ZERO_COUNTERS, type HanCounters, type YakuId } from "./src/yaku/catalog";
-import { YakuPicker } from "./src/yaku/YakuPicker";
-import { dropClosedOnly, impliedFuValues, sumYaku, toggleYaku } from "./src/yaku/sum";
+import { COUNTERS, ZERO_COUNTERS, type HanCounters, type YakuId } from "./src/yaku/catalog";
+import { HanStepper, YakuPicker } from "./src/yaku/YakuPicker";
+import { dropClosedOnly, impliedFuValues, sumYaku, toggleYaku, winningHan } from "./src/yaku/sum";
 import { HandBuilder } from "./src/hand/HandBuilder";
 import { BonusFields, CountRow } from "./src/game/BonusFields";
 import { GameTable } from "./src/game/GameTable";
@@ -62,7 +62,7 @@ export default function App() {
 
   useEffect(() => {
     if (Platform.OS !== "web" || typeof document === "undefined") return;
-    document.title = "Счёт ричи";
+    document.title = "Риичи";
     document.documentElement.lang = "ru";
     document.body.style.backgroundColor = colors.bg;
     document.documentElement.style.backgroundColor = colors.bg;
@@ -73,7 +73,7 @@ export default function App() {
       <SafeAreaView style={styles.screen}>
         <StatusBar style="light" />
         <View style={styles.column}>
-          <Text style={styles.appTitle}>Счёт ричи</Text>
+          <Text style={styles.appTitle}>Риичи</Text>
           <View style={styles.switchRow}>
             <Pressable
               accessibilityRole="button"
@@ -143,9 +143,9 @@ function Scorer({ canSave, onSave }: { canSave: boolean; onSave: (input: SettleI
   const yakuSum = sumYaku({ closed, selected, counters });
   const impliedFu = impliedFuValues(selected, closed);
   const fuDecision = decideFu(fu, impliedFu);
-  const han = yakuSum.yakuman > 0 ? 0 : yakuSum.han + extraHan;
+  const han = yakuSum.yakuman > 0 ? 0 : winningHan(yakuSum.han, extraHan, counters.dora);
   const score = scoreParts({
-    yakuHan: yakuSum.han,
+    yakuHan: yakuSum.yakuman > 0 ? yakuSum.han : Math.max(0, han - extraHan),
     extraHan,
     fu,
     impliedFu,
@@ -271,34 +271,31 @@ function Scorer({ canSave, onSave }: { canSave: boolean; onSave: (input: SettleI
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Каны</Text>
-            <CountRow
-              label="Открытый, простая"
-              value={kans.openSimple}
-              testID="kan-open-simple"
-              onDecrease={() => shiftKan("openSimple", -1)}
-              onIncrease={() => shiftKan("openSimple", 1)}
-            />
-            <CountRow
-              label="Открытый, 1·9·честь"
-              value={kans.openHonor}
-              testID="kan-open-honor"
-              onDecrease={() => shiftKan("openHonor", -1)}
-              onIncrease={() => shiftKan("openHonor", 1)}
-            />
-            <CountRow
-              label="Закрытый, простая"
-              value={kans.closedSimple}
-              testID="kan-closed-simple"
-              onDecrease={() => shiftKan("closedSimple", -1)}
-              onIncrease={() => shiftKan("closedSimple", 1)}
-            />
-            <CountRow
-              label="Закрытый, 1·9·честь"
-              value={kans.closedHonor}
-              testID="kan-closed-honor"
-              onDecrease={() => shiftKan("closedHonor", -1)}
-              onIncrease={() => shiftKan("closedHonor", 1)}
-            />
+            <View style={styles.kanBlock}>
+              <View style={styles.kanRow} pointerEvents="none">
+                <View style={styles.kanKindSpacer} />
+                <Text style={styles.kanCaption}>простая</Text>
+                <Text style={styles.kanCaption}>1·9·честь</Text>
+              </View>
+              <KanKindRow
+                kind="Открытый"
+                simple={kans.openSimple}
+                honor={kans.openHonor}
+                simpleId="kan-open-simple"
+                honorId="kan-open-honor"
+                onSimple={(delta) => shiftKan("openSimple", delta)}
+                onHonor={(delta) => shiftKan("openHonor", delta)}
+              />
+              <KanKindRow
+                kind="Закрытый"
+                simple={kans.closedSimple}
+                honor={kans.closedHonor}
+                simpleId="kan-closed-simple"
+                honorId="kan-closed-honor"
+                onSimple={(delta) => shiftKan("closedSimple", delta)}
+                onHonor={(delta) => shiftKan("closedHonor", delta)}
+              />
+            </View>
             <Hint>
               {addedKanFu > 0
                 ? `Каны добавляют ${addedKanFu} фу и округляют сумму до десятка.`
@@ -423,6 +420,15 @@ function Scorer({ canSave, onSave }: { canSave: boolean; onSave: (input: SettleI
             ) : null}
           </Section>
 
+          {COUNTERS.filter((counter) => counter.id === "dora").map((counter) => (
+            <HanStepper
+              key={counter.id}
+              counter={counter}
+              value={counters.dora}
+              onChange={(value) => setCounters((current) => ({ ...current, dora: value }))}
+            />
+          ))}
+
           <Section title="Яку">
             <YakuPicker
               closed={closed}
@@ -435,9 +441,93 @@ function Scorer({ canSave, onSave }: { canSave: boolean; onSave: (input: SettleI
           </Section>
 
           <Text style={styles.footer}>
-            Обычный счёт, без кириагэ-манган. Риити и дабури-риити не складываются.
+            Обычный счёт, без кириагэ-манган. Риичи и дабури-риичи не складываются.
           </Text>
         </ScrollView>
+    </View>
+  );
+}
+
+function KanKindRow({
+  kind,
+  simple,
+  honor,
+  simpleId,
+  honorId,
+  onSimple,
+  onHonor,
+}: {
+  kind: string;
+  simple: number;
+  honor: number;
+  simpleId: string;
+  honorId: string;
+  onSimple: (delta: -1 | 1) => void;
+  onHonor: (delta: -1 | 1) => void;
+}) {
+  return (
+    <View style={styles.kanRow}>
+      <Text style={styles.kanKind} numberOfLines={1}>
+        {kind}
+      </Text>
+      <KanDial
+        label={`${kind}, простая`}
+        value={simple}
+        testID={simpleId}
+        onDecrease={() => onSimple(-1)}
+        onIncrease={() => onSimple(1)}
+      />
+      <KanDial
+        label={`${kind}, 1·9·честь`}
+        value={honor}
+        testID={honorId}
+        onDecrease={() => onHonor(-1)}
+        onIncrease={() => onHonor(1)}
+      />
+    </View>
+  );
+}
+
+function KanDial({
+  label,
+  value,
+  testID,
+  onDecrease,
+  onIncrease,
+}: {
+  label: string;
+  value: number;
+  testID: string;
+  onDecrease: () => void;
+  onIncrease: () => void;
+}) {
+  return (
+    <View style={styles.kanDial}>
+      <View style={styles.kanStepper}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${label} меньше`}
+          testID={`${testID}-dec`}
+          onPress={onDecrease}
+          hitSlop={6}
+          style={styles.kanStep}
+        >
+          <Text style={styles.kanStepText}>−</Text>
+        </Pressable>
+        <Text style={styles.kanCount} testID={`${testID}-count`}>
+          {value}
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${label} больше`}
+          testID={`${testID}-inc`}
+          onPress={onIncrease}
+          hitSlop={6}
+          style={styles.kanStep}
+        >
+          <Text style={styles.kanStepText}>+</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -679,6 +769,63 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 18,
     fontWeight: "700",
+  },
+  kanBlock: {
+    gap: 6,
+  },
+  kanRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  kanKindSpacer: {
+    width: 84,
+  },
+  kanKind: {
+    width: 84,
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  kanDial: {
+    flex: 1,
+    alignItems: "center",
+  },
+  kanCaption: {
+    flex: 1,
+    color: colors.muted,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  kanStepper: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  kanStep: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: colors.chip,
+    borderWidth: 1,
+    borderColor: colors.chipEdge,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  kanStepText: {
+    color: colors.text,
+    fontSize: 22,
+    lineHeight: 24,
+  },
+  kanCount: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: "800",
+    minWidth: 18,
+    textAlign: "center",
+    fontVariant: ["tabular-nums"],
   },
   chip: {
     flexGrow: 0,

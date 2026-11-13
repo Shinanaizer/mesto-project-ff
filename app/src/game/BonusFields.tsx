@@ -24,7 +24,7 @@ export function BonusFields({
   return (
     <View style={styles.wrap}>
       <CountRow
-        label="Палочки"
+        label="Риичи"
         value={sticks}
         testID={`${idPrefix}-sticks`}
         onDecrease={() => onSticks(clampBonus(sticks - 1))}
@@ -38,7 +38,7 @@ export function BonusFields({
         onIncrease={() => onHonba(clampBonus(honba + 1))}
       />
       <Text style={styles.hint}>
-        Палочка — 1000 к очкам руки. Хонба — 300: при роне одной суммой, при цумо по 100.
+        Риичи — 1000 к очкам руки. Хонба — 300: при роне одной суммой, при цумо по 100.
       </Text>
     </View>
   );

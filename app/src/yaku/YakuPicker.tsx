@@ -36,6 +36,8 @@ export function YakuPicker({
 }) {
   const selectedSet = new Set(selected);
 
+  const yakuhai = COUNTERS.find((counter) => counter.id === "yakuhai");
+
   return (
     <View style={styles.wrap}>
       <Text style={styles.hint}>
@@ -46,7 +48,14 @@ export function YakuPicker({
           : "Отметьте яку. Их хан сложится отдельно от счётчика хан."}
       </Text>
 
-      <Text style={styles.group}>Яку</Text>
+      {yakuhai ? (
+        <HanStepper
+          counter={yakuhai}
+          value={counters.yakuhai}
+          onChange={(value) => onCounter("yakuhai", value)}
+        />
+      ) : null}
+
       {ORDINARY_YAKU.map((yaku) => (
         <YakuRow
           key={yaku.id}
@@ -75,39 +84,48 @@ export function YakuPicker({
           onPress={() => onToggle(yaku.id)}
         />
       ))}
+    </View>
+  );
+}
 
-      <Text style={styles.group}>Якухай и дора</Text>
-      {COUNTERS.map((counter) => (
-        <View key={counter.id} style={styles.counter}>
-          <View style={styles.counterText}>
-            <Text style={styles.name}>{counter.name}</Text>
-            <Text style={styles.description}>{counter.description}</Text>
-          </View>
-          <View style={styles.stepper}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`${counter.name} меньше`}
-              testID={`${counter.id}-dec`}
-              onPress={() => onCounter(counter.id, clampCounter(counters[counter.id] - 1))}
-              style={({ pressed }) => [styles.step, pressed && styles.pressed]}
-            >
-              <Text style={styles.stepText}>−</Text>
-            </Pressable>
-            <Text style={styles.count} testID={`${counter.id}-count`}>
-              {counters[counter.id]}
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`${counter.name} больше`}
-              testID={`${counter.id}-inc`}
-              onPress={() => onCounter(counter.id, clampCounter(counters[counter.id] + 1))}
-              style={({ pressed }) => [styles.step, pressed && styles.pressed]}
-            >
-              <Text style={styles.stepText}>+</Text>
-            </Pressable>
-          </View>
-        </View>
-      ))}
+export function HanStepper({
+  counter,
+  value,
+  onChange,
+}: {
+  counter: (typeof COUNTERS)[number];
+  value: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <View style={styles.counter}>
+      <View style={styles.counterText}>
+        <Text style={styles.name}>{counter.name}</Text>
+        <Text style={styles.description}>{counter.description}</Text>
+      </View>
+      <View style={styles.stepper}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${counter.name} меньше`}
+          testID={`${counter.id}-dec`}
+          onPress={() => onChange(clampCounter(value - 1))}
+          style={({ pressed }) => [styles.step, pressed && styles.pressed]}
+        >
+          <Text style={styles.stepText}>−</Text>
+        </Pressable>
+        <Text style={styles.count} testID={`${counter.id}-count`}>
+          {value}
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${counter.name} больше`}
+          testID={`${counter.id}-inc`}
+          onPress={() => onChange(clampCounter(value + 1))}
+          style={({ pressed }) => [styles.step, pressed && styles.pressed]}
+        >
+          <Text style={styles.stepText}>+</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }

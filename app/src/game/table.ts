@@ -54,7 +54,7 @@ export function awardView(hand: Score, sticks: number, honba: number): { total: 
   const stickPoints = sticks * STICK_VALUE;
   const total = hand.total + stickPoints + honba * HONBA_VALUE;
   const lines = hand.winBy === "ron" ? ronLines(hand, honba) : tsumoLines(hand, honba);
-  if (stickPoints > 0) lines.push(`Палочки ${formatPoints(stickPoints)} победителю`);
+  if (stickPoints > 0) lines.push(`Риичи ${formatPoints(stickPoints)} победителю`);
   return { total, lines };
 }
 

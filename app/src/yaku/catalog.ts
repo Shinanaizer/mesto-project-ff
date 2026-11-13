@@ -26,8 +26,8 @@ export interface YakuDef {
 export const YAKU = [
   {
     id: "riichi",
-    name: "Риити",
-    description: "Закрытая рука и объявленная ставка риити.",
+    name: "Риичи",
+    description: "Закрытая рука и объявленная ставка риичи.",
     group: "yaku",
     closedOnly: true,
     closedHan: 1,
@@ -36,8 +36,8 @@ export const YAKU = [
   },
   {
     id: "daburuRiichi",
-    name: "Дабури-риити",
-    description: "Риити первой раздачей, ещё до чужих сбросов.",
+    name: "Дабури-риичи",
+    description: "Риичи первой раздачей, ещё до чужих сбросов.",
     group: "yaku",
     closedOnly: true,
     closedHan: 2,
@@ -47,7 +47,7 @@ export const YAKU = [
   {
     id: "ippatsu",
     name: "Иппацу",
-    description: "Победа в первом круге после объявления риити.",
+    description: "Победа в первом круге после объявления риичи.",
     group: "yaku",
     closedOnly: true,
     closedHan: 1,
@@ -434,20 +434,5 @@ export const COUNTERS = [
     id: "dora",
     name: "Дора",
     description: "Плитка по индикатору доры. Каждая даёт хан.",
-  },
-  {
-    id: "uraDora",
-    name: "Ура-дора",
-    description: "Нижний индикатор после риити. Каждая даёт хан.",
-  },
-  {
-    id: "akaDora",
-    name: "Ака-дора",
-    description: "Красная пятёрка. Каждая даёт хан.",
-  },
-  {
-    id: "kanDora",
-    name: "Кан-дора",
-    description: "Новый индикатор после кана. Каждая даёт хан.",
   },
 ] as const satisfies readonly { id: keyof HanCounters; name: string; description: string }[];
